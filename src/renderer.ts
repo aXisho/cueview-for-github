@@ -276,19 +276,24 @@ function flatten(children: CueChild[]): FlatItem[] {
 export function renderChildren(children: CueChild[]): DocumentFragment {
   const frag = document.createDocumentFragment();
   const items = flatten(children);
-  let i = 0;
 
+  // marked-footnote requires all footnote references and definitions to appear
+  // in the same marked.parse() call. Strategy: build one combined markdown
+  // string with HTML comment placeholders for non-text items (inline runs and
+  // block CueNodes), parse once, then replace each placeholder comment with
+  // the real DOM node in-place before moving children into the fragment.
+  const PLACEHOLDER = "cuemd-ph";
+  const slots = new Map<number, Element>();  // index → pre-built DOM node
+
+  let md = "";
+  let i = 0;
   while (i < items.length) {
     const item = items[i];
 
-    // ── Paragraph-break marker (separator only) ─────────────────────────────
-    if (item.kind === "paragraph-break") {
-      i++;
-      continue;
-    }
+    if (item.kind === "paragraph-break") { md += "\n\n"; i++; continue; }
 
-    // ── Inline run ────────────────────────────────────────────────────────────
-    // Starts at an inline-text or inline cue node.
+    if (item.kind === "block-text") { md += item.content + "\n\n"; i++; continue; }
+
     if (item.kind === "inline-text" || (item.kind === "cue" && isInlineNode(item.node))) {
       const p = document.createElement("p");
       while (i < items.length) {
@@ -296,7 +301,6 @@ export function renderChildren(children: CueChild[]): DocumentFragment {
         if (cur.kind === "block-text") break;
         if (cur.kind === "paragraph-break") { i++; break; }
         if (cur.kind === "cue" && !isInlineNode(cur.node)) break;
-
         if (cur.kind === "inline-text") {
           const txt = cur.content.replace(/\n/g, " ");
           if (txt.trim()) {
@@ -310,38 +314,53 @@ export function renderChildren(children: CueChild[]): DocumentFragment {
         }
         i++;
       }
-      // Only append the <p> if it has content
-      if (p.hasChildNodes()) frag.appendChild(p);
-      continue;
-    }
-
-    // ── Block text ────────────────────────────────────────────────────────────
-    if (item.kind === "block-text") {
-      const text = item.content;
-      if (text.trim()) {
-        try {
-          const html = marked.parse(text) as string;
-          const wrapper = document.createElement("div");
-          wrapper.innerHTML = html;
-          for (const h of wrapper.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
-            if (!h.id) h.id = slugify(h.textContent ?? "");
-          }
-          while (wrapper.firstChild) frag.appendChild(wrapper.firstChild);
-        } catch {
-          frag.appendChild(document.createTextNode(text));
-        }
+      if (p.hasChildNodes()) {
+        const idx = slots.size;
+        slots.set(idx, p);
+        md += `<!--${PLACEHOLDER}-${idx}-->\n\n`;
       }
+      continue;
+    }
+
+    if (item.kind === "cue") {
+      const idx = slots.size;
+      const el = document.createElement("div");
+      el.appendChild(renderCueNode(item.node));
+      slots.set(idx, el);
+      md += `<!--${PLACEHOLDER}-${idx}-->\n\n`;
       i++;
       continue;
     }
 
-    // ── Block CueNode ─────────────────────────────────────────────────────────
-    if (item.kind === "cue") {
-      frag.appendChild(renderCueNode(item.node));
-      i++;
-    }
+    i++;
   }
 
+  // Parse the combined markdown once so footnotes resolve correctly.
+  const html = marked.parse(md.trim()) as string;
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = html;
+
+  for (const h of wrapper.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
+    if (!h.id) h.id = slugify(h.textContent ?? "");
+  }
+
+  // Replace placeholder comments with pre-built DOM nodes in document order.
+  const placeholderRe = new RegExp(`^${PLACEHOLDER}-(\\d+)$`);
+  const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_COMMENT);
+  const replacements: Array<{ comment: Comment; el: Element }> = [];
+  let n: Node | null;
+  while ((n = walker.nextNode())) {
+    const m = placeholderRe.exec((n as Comment).data.trim());
+    if (m) {
+      const el = slots.get(parseInt(m[1], 10));
+      if (el) replacements.push({ comment: n as Comment, el });
+    }
+  }
+  for (const { comment, el } of replacements) {
+    comment.replaceWith(...Array.from(el.childNodes));
+  }
+
+  while (wrapper.firstChild) frag.appendChild(wrapper.firstChild);
   return frag;
 }
 
