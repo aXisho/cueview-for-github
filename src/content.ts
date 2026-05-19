@@ -35,6 +35,26 @@ function findContainer(): Element | null {
   );
 }
 
+// ── Hash link handling ────────────────────────────────────────────────────────
+
+const hashLinkContainers = new WeakSet<Element>();
+
+function installHashLinkHandlers(container: Element): void {
+  if (hashLinkContainers.has(container)) return;
+  hashLinkContainers.add(container);
+  container.addEventListener("click", (e) => {
+    const a = (e.target as Element).closest("a");
+    if (!a) return;
+    const href = a.getAttribute("href");
+    if (!href?.startsWith("#")) return;
+    const id = href.slice(1);
+    const target = container.querySelector(`#${CSS.escape(id)}`) ?? document.getElementById(id);
+    if (!target) return;
+    e.preventDefault();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 const cachedRaw = new Map<string, string>();
@@ -83,6 +103,7 @@ function applyAndWatch(container: Element, raw: string): void {
     frag.prepend(sentinel);
     container.replaceChildren(frag);
     container.setAttribute(RENDERED_ATTR, "true");
+    installHashLinkHandlers(container);
     queueMicrotask(() => {
       applying = false;
     });

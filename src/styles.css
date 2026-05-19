@@ -113,8 +113,8 @@ h4.cue-heading, h5.cue-heading, h6.cue-heading {
 .cue-mark.cue-color-red    { background: #ffebe9; }
 .cue-mark.cue-color-gray   { background: #eaeef2; }
 
-/* KBD */
-.cue-kbd { font-family: ui-monospace, monospace; font-size: 0.85em; padding: 0.1em 0.4em; border: 1px solid #d0d7de; border-radius: 4px; background: #f6f8fa; box-shadow: inset 0 -1px 0 #d0d7de; }
+/* KBD — span instead of kbd to avoid github-markdown-css overrides */
+.cue-kbd { display: inline-block; font-family: ui-monospace, monospace; font-size: 0.85em; padding: 0.1em 0.4em; border: 1px solid #d0d7de; border-radius: 4px; background: #f6f8fa; box-shadow: inset 0 -1px 0 #d0d7de; line-height: 1.4; vertical-align: middle; }
 
 /* Small */
 .cue-small { font-size: 0.8em; color: var(--color-gh-text-secondary, #656d76); }

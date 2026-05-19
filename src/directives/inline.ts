@@ -35,7 +35,7 @@ export function renderInline(node: CueNode): HTMLElement {
       return big;
     }
     case "kbd": {
-      const kbd = document.createElement("kbd");
+      const kbd = document.createElement("span");
       kbd.className = "cue-kbd";
       kbd.appendChild(renderInlineChildren(node.children));
       return kbd;
