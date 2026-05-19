@@ -1,0 +1,231 @@
+/* CueView for GitHub — directive styles */
+/* Synced with cuemo/internal/frontend/src/cue/styles.css */
+
+/* ── Syntax highlighting (highlight.js github theme) ── */
+pre code.hljs { display: block; overflow-x: auto; padding: 1em; }
+code.hljs { padding: 3px 5px; }
+/* Light theme */
+.hljs { color: #24292e; background: #ffffff; }
+.hljs-doctag, .hljs-keyword, .hljs-meta .hljs-keyword, .hljs-template-tag, .hljs-template-variable, .hljs-type, .hljs-variable.language_ { color: #d73a49; }
+.hljs-title, .hljs-title.class_, .hljs-title.class_.inherited__, .hljs-title.function_ { color: #6f42c1; }
+.hljs-attr, .hljs-attribute, .hljs-literal, .hljs-meta, .hljs-number, .hljs-operator, .hljs-variable, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id { color: #005cc5; }
+.hljs-regexp, .hljs-string, .hljs-meta .hljs-string { color: #032f62; }
+.hljs-built_in, .hljs-symbol { color: #e36209; }
+.hljs-comment, .hljs-code, .hljs-formula { color: #6a737d; }
+.hljs-name, .hljs-quote, .hljs-selector-tag, .hljs-selector-pseudo { color: #22863a; }
+.hljs-subst { color: #24292e; }
+.hljs-section { color: #005cc5; font-weight: bold; }
+.hljs-bullet { color: #735c0f; }
+.hljs-emphasis { color: #24292e; font-style: italic; }
+.hljs-strong { color: #24292e; font-weight: bold; }
+.hljs-addition { color: #22863a; background-color: #f0fff4; }
+.hljs-deletion { color: #b31d28; background-color: #ffeef0; }
+/* Dark theme — GitHub uses data-color-mode="dark" or "auto" (OS) on <html> */
+[data-color-mode="dark"] .hljs { color: #c9d1d9; background: #0d1117; }
+[data-color-mode="dark"] .hljs-doctag, [data-color-mode="dark"] .hljs-keyword, [data-color-mode="dark"] .hljs-meta .hljs-keyword, [data-color-mode="dark"] .hljs-template-tag, [data-color-mode="dark"] .hljs-template-variable, [data-color-mode="dark"] .hljs-type, [data-color-mode="dark"] .hljs-variable.language_ { color: #ff7b72; }
+[data-color-mode="dark"] .hljs-title, [data-color-mode="dark"] .hljs-title.class_, [data-color-mode="dark"] .hljs-title.class_.inherited__, [data-color-mode="dark"] .hljs-title.function_ { color: #d2a8ff; }
+[data-color-mode="dark"] .hljs-attr, [data-color-mode="dark"] .hljs-attribute, [data-color-mode="dark"] .hljs-literal, [data-color-mode="dark"] .hljs-meta, [data-color-mode="dark"] .hljs-number, [data-color-mode="dark"] .hljs-operator, [data-color-mode="dark"] .hljs-variable, [data-color-mode="dark"] .hljs-selector-attr, [data-color-mode="dark"] .hljs-selector-class, [data-color-mode="dark"] .hljs-selector-id { color: #79c0ff; }
+[data-color-mode="dark"] .hljs-regexp, [data-color-mode="dark"] .hljs-string, [data-color-mode="dark"] .hljs-meta .hljs-string { color: #a5d6ff; }
+[data-color-mode="dark"] .hljs-built_in, [data-color-mode="dark"] .hljs-symbol { color: #ffa657; }
+[data-color-mode="dark"] .hljs-comment, [data-color-mode="dark"] .hljs-code, [data-color-mode="dark"] .hljs-formula { color: #8b949e; }
+[data-color-mode="dark"] .hljs-name, [data-color-mode="dark"] .hljs-quote, [data-color-mode="dark"] .hljs-selector-tag, [data-color-mode="dark"] .hljs-selector-pseudo { color: #7ee787; }
+[data-color-mode="dark"] .hljs-subst { color: #c9d1d9; }
+[data-color-mode="dark"] .hljs-section { color: #1f6feb; font-weight: bold; }
+[data-color-mode="dark"] .hljs-bullet { color: #f2cc60; }
+[data-color-mode="dark"] .hljs-emphasis { color: #c9d1d9; font-style: italic; }
+[data-color-mode="dark"] .hljs-strong { color: #c9d1d9; font-weight: bold; }
+[data-color-mode="dark"] .hljs-addition { color: #aff5b4; background-color: #033a16; }
+[data-color-mode="dark"] .hljs-deletion { color: #ffdcd7; background-color: #67060c; }
+@media (prefers-color-scheme: dark) {
+  [data-color-mode="auto"] .hljs { color: #c9d1d9; background: #0d1117; }
+  [data-color-mode="auto"] .hljs-doctag, [data-color-mode="auto"] .hljs-keyword, [data-color-mode="auto"] .hljs-meta .hljs-keyword, [data-color-mode="auto"] .hljs-template-tag, [data-color-mode="auto"] .hljs-template-variable, [data-color-mode="auto"] .hljs-type, [data-color-mode="auto"] .hljs-variable.language_ { color: #ff7b72; }
+  [data-color-mode="auto"] .hljs-title, [data-color-mode="auto"] .hljs-title.class_, [data-color-mode="auto"] .hljs-title.class_.inherited__, [data-color-mode="auto"] .hljs-title.function_ { color: #d2a8ff; }
+  [data-color-mode="auto"] .hljs-attr, [data-color-mode="auto"] .hljs-attribute, [data-color-mode="auto"] .hljs-literal, [data-color-mode="auto"] .hljs-meta, [data-color-mode="auto"] .hljs-number, [data-color-mode="auto"] .hljs-operator, [data-color-mode="auto"] .hljs-variable, [data-color-mode="auto"] .hljs-selector-attr, [data-color-mode="auto"] .hljs-selector-class, [data-color-mode="auto"] .hljs-selector-id { color: #79c0ff; }
+  [data-color-mode="auto"] .hljs-regexp, [data-color-mode="auto"] .hljs-string, [data-color-mode="auto"] .hljs-meta .hljs-string { color: #a5d6ff; }
+  [data-color-mode="auto"] .hljs-built_in, [data-color-mode="auto"] .hljs-symbol { color: #ffa657; }
+  [data-color-mode="auto"] .hljs-comment, [data-color-mode="auto"] .hljs-code, [data-color-mode="auto"] .hljs-formula { color: #8b949e; }
+  [data-color-mode="auto"] .hljs-name, [data-color-mode="auto"] .hljs-quote, [data-color-mode="auto"] .hljs-selector-tag, [data-color-mode="auto"] .hljs-selector-pseudo { color: #7ee787; }
+  [data-color-mode="auto"] .hljs-subst { color: #c9d1d9; }
+  [data-color-mode="auto"] .hljs-section { color: #1f6feb; font-weight: bold; }
+  [data-color-mode="auto"] .hljs-bullet { color: #f2cc60; }
+  [data-color-mode="auto"] .hljs-emphasis { color: #c9d1d9; font-style: italic; }
+  [data-color-mode="auto"] .hljs-strong { color: #c9d1d9; font-weight: bold; }
+  [data-color-mode="auto"] .hljs-addition { color: #aff5b4; background-color: #033a16; }
+  [data-color-mode="auto"] .hljs-deletion { color: #ffdcd7; background-color: #67060c; }
+}
+
+/* Callouts */
+.cue-callout { border-left: 4px solid; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; }
+.cue-callout-info      { border-color: var(--cue-blue, #0969da);   background: color-mix(in srgb, var(--cue-blue, #0969da) 8%, transparent); }
+.cue-callout-tip       { border-color: var(--cue-green, #1a7f37);  background: color-mix(in srgb, var(--cue-green, #1a7f37) 8%, transparent); }
+.cue-callout-important { border-color: var(--cue-purple, #8250df); background: color-mix(in srgb, var(--cue-purple, #8250df) 8%, transparent); }
+.cue-callout-warning   { border-color: var(--cue-yellow, #9a6700); background: color-mix(in srgb, var(--cue-yellow, #9a6700) 8%, transparent); }
+.cue-callout-danger    { border-color: var(--cue-red, #cf222e);    background: color-mix(in srgb, var(--cue-red, #cf222e) 8%, transparent); }
+.cue-callout-title { font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+
+/* Heading directive — promoted background-coloured Markdown heading.
+   Overrides default GitHub heading margins/line-height so the coloured band
+   hugs the text vertically and stretches the full width horizontally. */
+h1.cue-heading, h2.cue-heading, h3.cue-heading,
+h4.cue-heading, h5.cue-heading, h6.cue-heading {
+  display: block;
+  padding: 0.3em 0.6em;
+  border-radius: 6px;
+  border-bottom: none;
+  margin-left: 0;
+  margin-right: 0;
+  line-height: 1.4;
+}
+.cue-heading > p { margin: 0; padding: 0; }
+.cue-heading-color-gray   { background: color-mix(in srgb, var(--cue-gray, #8c959f) 15%, transparent); }
+.cue-heading-color-blue   { background: color-mix(in srgb, var(--cue-blue, #0969da) 15%, transparent); }
+.cue-heading-color-green  { background: color-mix(in srgb, var(--cue-green, #1a7f37) 15%, transparent); }
+.cue-heading-color-yellow { background: color-mix(in srgb, var(--cue-yellow, #9a6700) 15%, transparent); }
+.cue-heading-color-red    { background: color-mix(in srgb, var(--cue-red, #cf222e) 15%, transparent); }
+.cue-heading-color-purple { background: color-mix(in srgb, var(--cue-purple, #8250df) 15%, transparent); }
+
+/* Tabs */
+.cue-tabs-bar { display: flex; gap: 0; border-bottom: 1px solid var(--color-gh-border, #d0d7de); margin-bottom: 0; }
+.cue-tabs-btn { padding: 0.4rem 1rem; border: none; border-bottom: 2px solid transparent; background: none; cursor: pointer; color: var(--color-gh-text-secondary, #656d76); font-size: 0.875rem; }
+.cue-tabs-btn.active { border-bottom-color: var(--cue-blue, #0969da); color: var(--color-gh-text-primary, #1f2328); font-weight: 600; }
+.cue-tabs-btn.cue-color-gray.active   { border-bottom-color: var(--cue-gray, #8c959f); }
+.cue-tabs-btn.cue-color-blue.active   { border-bottom-color: var(--cue-blue, #0969da); }
+.cue-tabs-btn.cue-color-green.active  { border-bottom-color: var(--cue-green, #1a7f37); }
+.cue-tabs-btn.cue-color-yellow.active { border-bottom-color: var(--cue-yellow, #9a6700); }
+.cue-tabs-btn.cue-color-red.active    { border-bottom-color: var(--cue-red, #cf222e); }
+.cue-tabs-btn.cue-color-purple.active { border-bottom-color: var(--cue-purple, #8250df); }
+.cue-tabs-panel { padding: 1rem 0; }
+
+/* Badge */
+.cue-badge { display: inline-flex; align-items: center; padding: 0.1em 0.5em; border-radius: 9999px; font-size: 0.75em; font-weight: 600; line-height: 1.5; }
+.cue-badge.cue-color-gray   { background: #eaeef2; color: #57606a; }
+.cue-badge.cue-color-blue   { background: #ddf4ff; color: #0969da; }
+.cue-badge.cue-color-green  { background: #dafbe1; color: #1a7f37; }
+.cue-badge.cue-color-yellow { background: #fff8c5; color: #9a6700; }
+.cue-badge.cue-color-red    { background: #ffebe9; color: #cf222e; }
+.cue-badge.cue-color-purple { background: #fbefff; color: #8250df; }
+
+/* Mark */
+.cue-mark { padding: 0.1em 0.2em; border-radius: 2px; }
+.cue-mark.cue-color-yellow { background: #fff8c5; }
+.cue-mark.cue-color-green  { background: #dafbe1; }
+.cue-mark.cue-color-blue   { background: #ddf4ff; }
+.cue-mark.cue-color-red    { background: #ffebe9; }
+.cue-mark.cue-color-gray   { background: #eaeef2; }
+
+/* KBD */
+.cue-kbd { font-family: ui-monospace, monospace; font-size: 0.85em; padding: 0.1em 0.4em; border: 1px solid #d0d7de; border-radius: 4px; background: #f6f8fa; box-shadow: inset 0 -1px 0 #d0d7de; }
+
+/* Small */
+.cue-small { font-size: 0.8em; color: var(--color-gh-text-secondary, #656d76); }
+
+/* Big — the typographic counterpart of <small> */
+.cue-big { font-size: 1.25em; font-weight: 600; }
+
+/* Details */
+.cue-details { border: 1px solid var(--color-gh-border, #d0d7de); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 1rem 0; }
+.cue-details > summary { cursor: pointer; font-weight: 600; }
+.cue-details.cue-color-blue   { border-color: var(--cue-blue, #0969da);   background: color-mix(in srgb, var(--cue-blue, #0969da) 6%, transparent); }
+.cue-details.cue-color-green  { border-color: var(--cue-green, #1a7f37);  background: color-mix(in srgb, var(--cue-green, #1a7f37) 6%, transparent); }
+.cue-details.cue-color-yellow { border-color: var(--cue-yellow, #9a6700); background: color-mix(in srgb, var(--cue-yellow, #9a6700) 6%, transparent); }
+.cue-details.cue-color-red    { border-color: var(--cue-red, #cf222e);    background: color-mix(in srgb, var(--cue-red, #cf222e) 6%, transparent); }
+.cue-details.cue-color-purple { border-color: var(--cue-purple, #8250df); background: color-mix(in srgb, var(--cue-purple, #8250df) 6%, transparent); }
+.cue-details.cue-color-gray   { border-color: var(--cue-gray, #8c959f);   background: color-mix(in srgb, var(--cue-gray, #8c959f) 6%, transparent); }
+
+
+/* Footnote — GFM extension styling (marked-footnote default markup) */
+.footnotes { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--color-gh-border, #d0d7de); font-size: 0.9em; }
+.footnotes ol { padding-left: 1.25rem; }
+.footnote-ref { font-size: 0.85em; vertical-align: super; line-height: 0; }
+.footnote-backref { text-decoration: none; margin-left: 0.25rem; }
+
+/* Card */
+.cue-card { border: 1px solid var(--color-gh-border, #d0d7de); border-radius: 6px; padding: 1rem; margin: 0.5rem 0; text-decoration: none; color: inherit; display: block; transition: border-color 0.15s, box-shadow 0.15s; }
+.cue-card:hover { border-color: var(--cue-blue, #0969da); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.cue-card-title { font-weight: 600; margin-bottom: 0.5rem; }
+.cue-card > *:last-child { margin-bottom: 0; }
+.cue-card.cue-color-blue   { border-color: var(--cue-blue, #0969da); background: color-mix(in srgb, var(--cue-blue, #0969da) 6%, transparent); }
+.cue-card.cue-color-green  { border-color: var(--cue-green, #1a7f37); background: color-mix(in srgb, var(--cue-green, #1a7f37) 6%, transparent); }
+.cue-card.cue-color-yellow { border-color: var(--cue-yellow, #9a6700); background: color-mix(in srgb, var(--cue-yellow, #9a6700) 6%, transparent); }
+.cue-card.cue-color-red    { border-color: var(--cue-red, #cf222e); background: color-mix(in srgb, var(--cue-red, #cf222e) 6%, transparent); }
+.cue-card.cue-color-purple { border-color: var(--cue-purple, #8250df); background: color-mix(in srgb, var(--cue-purple, #8250df) 6%, transparent); }
+.cue-card.cue-color-gray   { border-color: var(--cue-gray, #8c959f); background: color-mix(in srgb, var(--cue-gray, #8c959f) 6%, transparent); }
+
+/* Grid — `border=solid` (default) paints divider lines behind cells that use
+   the page background. `border=none` removes the dividers. Use a `card`
+   wrapper for an outer frame. */
+.cue-grid {
+  display: grid;
+  gap: 1px;
+  margin: 1rem 0;
+  background: var(--color-gh-border, #d0d7de);
+}
+.cue-cell {
+  padding: 0.75rem 1rem;
+  background: var(--color-gh-bg, #ffffff);
+}
+.cue-grid.cue-color-blue   { background: var(--cue-blue, #0969da); }
+.cue-grid.cue-color-green  { background: var(--cue-green, #1a7f37); }
+.cue-grid.cue-color-yellow { background: var(--cue-yellow, #9a6700); }
+.cue-grid.cue-color-red    { background: var(--cue-red, #cf222e); }
+.cue-grid.cue-color-purple { background: var(--cue-purple, #8250df); }
+.cue-grid.cue-border-none {
+  gap: 1rem;
+  background: transparent;
+}
+.cue-grid.cue-border-none > .cue-cell:not(.cue-border-solid) {
+  padding-left: 0;
+  padding-right: 0;
+  background: transparent;
+}
+.cue-cell.cue-border-none {
+  padding-left: 0;
+  padding-right: 0;
+  background: transparent;
+}
+/* Grid colour acts as a default for its cells (each cell still picks its own colour class). */
+.cue-grid.cue-color-blue   > .cue-cell:not([class*="cue-color-"]) { border-color: var(--cue-blue, #0969da); }
+.cue-grid.cue-color-green  > .cue-cell:not([class*="cue-color-"]) { border-color: var(--cue-green, #1a7f37); }
+.cue-grid.cue-color-yellow > .cue-cell:not([class*="cue-color-"]) { border-color: var(--cue-yellow, #9a6700); }
+.cue-grid.cue-color-red    > .cue-cell:not([class*="cue-color-"]) { border-color: var(--cue-red, #cf222e); }
+.cue-grid.cue-color-purple > .cue-cell:not([class*="cue-color-"]) { border-color: var(--cue-purple, #8250df); }
+.cue-grid.cue-color-gray   > .cue-cell:not([class*="cue-color-"]) { border-color: var(--cue-gray, #8c959f); }
+.cue-cell > strong { display: block; margin-bottom: 0.4rem; }
+.cue-cell > *:last-child { margin-bottom: 0; }
+.cue-cell.cue-color-blue   { background: color-mix(in srgb, var(--cue-blue, #0969da) 8%, var(--color-gh-bg, #fff)); }
+.cue-cell.cue-color-green  { background: color-mix(in srgb, var(--cue-green, #1a7f37) 8%, var(--color-gh-bg, #fff)); }
+.cue-cell.cue-color-yellow { background: color-mix(in srgb, var(--cue-yellow, #9a6700) 8%, var(--color-gh-bg, #fff)); }
+.cue-cell.cue-color-red    { background: color-mix(in srgb, var(--cue-red, #cf222e) 8%, var(--color-gh-bg, #fff)); }
+.cue-cell.cue-color-purple { background: color-mix(in srgb, var(--cue-purple, #8250df) 8%, var(--color-gh-bg, #fff)); }
+.cue-cell.cue-color-gray   { background: color-mix(in srgb, var(--cue-gray, #8c959f) 8%, var(--color-gh-bg, #fff)); }
+
+/* Steps — overrides GitHub's .markdown-body li+li/.markdown-body li>p/pre margins
+   (higher specificity than ours) with !important to keep the vertical rail
+   continuous between adjacent steps. */
+.cue-steps { list-style: none; padding: 0; margin: 1rem 0; counter-reset: cue-step; }
+.cue-steps > .cue-step { margin: 0 0 0 0.75rem !important; }
+.cue-step::marker { content: ""; }
+.cue-step { counter-increment: cue-step; padding: 0.75rem 0 0.75rem 3rem; position: relative; }
+.cue-step > strong { font-size: 1.1rem !important; font-weight: 600; display: block; line-height: 2rem; margin-bottom: 0.4rem !important; margin-top: 0 !important; }
+.cue-step::before { content: counter(cue-step); position: absolute; left: -1rem; top: 0.75rem; width: 2rem; height: 2rem; border-radius: 50%; background: var(--cue-blue, #0969da); color: white; font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; justify-content: center; z-index: 1; }
+.cue-step:not(:last-child)::after { content: ""; position: absolute; left: 0; top: 1.75rem; bottom: -1.75rem; width: 2px; background: var(--color-gh-border, #d0d7de); z-index: 0; }
+.cue-step.cue-color-gray::before   { background: var(--cue-gray, #8c959f); }
+.cue-step.cue-color-blue::before   { background: var(--cue-blue, #0969da); }
+.cue-step.cue-color-green::before  { background: var(--cue-green, #1a7f37); }
+.cue-step.cue-color-yellow::before { background: var(--cue-yellow, #9a6700); }
+.cue-step.cue-color-red::before    { background: var(--cue-red, #cf222e); }
+.cue-step.cue-color-purple::before { background: var(--cue-purple, #8250df); }
+.cue-step > * { margin-top: 0 !important; }
+.cue-step > *:last-child { margin-bottom: 0 !important; }
+.cue-step > p { margin: 0 0 0.5rem 0 !important; }
+.cue-step > pre { margin: 0 0 0.4rem 0 !important; }
+.cue-step > div { margin: 0 !important; }
+
+/* TOC */
+.cue-toc { background: var(--color-gh-bg-sidebar, #f6f8fa); border: 1px solid var(--color-gh-border, #d0d7de); border-radius: 6px; padding: 0.75rem 1rem; margin: 1rem 0; }
+.cue-toc-title { font-weight: 600; margin-bottom: 0.5rem; font-size: 0.875rem; color: var(--color-gh-text-secondary, #656d76); }
+.cue-toc ol, .cue-toc ul { list-style: none; margin: 0; padding-left: 0; font-size: 0.875rem; }
+.cue-toc li::marker { content: ""; }
+.cue-toc li { margin: 0.25rem 0; }
+.cue-toc a { color: var(--color-gh-text-link, #0969da); text-decoration: none; }
+.cue-toc a:hover { text-decoration: underline; }
