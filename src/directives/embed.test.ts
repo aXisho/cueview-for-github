@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toEmbedSrc } from "./embed";
+import { toEmbedSrc, isGistUrl } from "./embed";
 
 describe("toEmbedSrc — YouTube", () => {
   it("converts watch URL", () => {
@@ -71,6 +71,24 @@ describe("toEmbedSrc — CodePen", () => {
   it("does not match non-pen URL", () => {
     const url = "https://codepen.io/anon/details/abcXYZ";
     expect(toEmbedSrc(url)).toBe(url); // passthrough
+  });
+});
+
+describe("isGistUrl", () => {
+  it("matches standard gist URL", () => {
+    expect(isGistUrl("https://gist.github.com/user/abc123def456")).toBe(true);
+  });
+
+  it("matches gist URL with hash anchor", () => {
+    expect(isGistUrl("https://gist.github.com/user/abc123def456#file-hello-js")).toBe(true);
+  });
+
+  it("does not match non-gist GitHub URL", () => {
+    expect(isGistUrl("https://github.com/user/repo")).toBe(false);
+  });
+
+  it("does not match random URL", () => {
+    expect(isGistUrl("https://example.com/gist/abc123")).toBe(false);
   });
 });
 
