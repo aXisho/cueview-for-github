@@ -1,18 +1,14 @@
 /**
- * content.ts — CueView for GitHub content script
+ * content.ts — GlossView for GitHub content script
  */
 
-import { parseCueMd } from "./parser";
+import { parseGlossMd } from "./parser";
 import { renderChildren } from "./renderer";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function isCueMdPath(): boolean {
-  const path = window.location.pathname.toLowerCase();
-  // Both extensions use the same Cue Markdown syntax; the .cuemd form is for
-  // viewer-only deployments where GitHub-compatible rendering is not required,
-  // but GitHub still shows the raw text so we render either kind.
-  return path.endsWith(".cue.md") || path.endsWith(".cuemd");
+function isGlossMdPath(): boolean {
+  return window.location.pathname.toLowerCase().endsWith(".gloss.md");
 }
 
 function getRawUrl(): string | null {
@@ -62,13 +58,13 @@ let containerObserver: MutationObserver | null = null;
 let bodyObserver: MutationObserver | null = null;
 let watchedContainer: Element | null = null;
 
-const SENTINEL_ATTR = "data-cueview-sentinel";
-const RENDERED_ATTR = "data-cueview-rendered";
+const SENTINEL_ATTR = "data-glossview-sentinel";
+const RENDERED_ATTR = "data-glossview-rendered";
 
 // ── Core ──────────────────────────────────────────────────────────────────────
 
 function buildFragment(raw: string): DocumentFragment {
-  return renderChildren(parseCueMd(raw));
+  return renderChildren(parseGlossMd(raw));
 }
 
 function isOurRendering(container: Element): boolean {
@@ -136,11 +132,11 @@ function installBodyObserver(): void {
     pending = true;
     queueMicrotask(() => {
       pending = false;
-      if (!isCueMdPath()) return;
+      if (!isGlossMdPath()) return;
       const container = findContainer();
       if (!container) return;
       if (container === watchedContainer && isOurRendering(container)) return;
-      main().catch((err) => console.error("[CueView]", err));
+      main().catch((err) => console.error("[GlossView]", err));
     });
   });
   bodyObserver.observe(document.documentElement, { childList: true, subtree: true });
@@ -149,7 +145,7 @@ function installBodyObserver(): void {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  if (!isCueMdPath()) {
+  if (!isGlossMdPath()) {
     containerObserver?.disconnect();
     containerObserver = null;
     watchedContainer = null;
@@ -169,14 +165,14 @@ async function main(): Promise<void> {
       raw = await res.text();
       cachedRaw.set(cacheKey, raw);
     } catch {
-      console.warn("[CueView] Failed to fetch:", rawUrl);
+      console.warn("[GlossView] Failed to fetch:", rawUrl);
       return;
     }
   }
 
   const container = findContainer();
   if (!container) {
-    console.warn("[CueView] Markdown container not found");
+    console.warn("[GlossView] Markdown container not found");
     return;
   }
 
@@ -187,12 +183,12 @@ async function main(): Promise<void> {
 
 function scheduleMain(delay = 300): void {
   setTimeout(() => {
-    main().catch((err) => console.error("[CueView]", err));
+    main().catch((err) => console.error("[GlossView]", err));
   }, delay);
 }
 
 installBodyObserver();
-main().catch((err) => console.error("[CueView]", err));
+main().catch((err) => console.error("[GlossView]", err));
 
 document.addEventListener("turbo:load", () => scheduleMain(300));
 document.addEventListener("turbo:render", () => scheduleMain(400));

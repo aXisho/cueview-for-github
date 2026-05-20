@@ -1,4 +1,4 @@
-import type { CueNode } from "../parser";
+import type { GlossNode } from "../parser";
 import { ALLOWED_COLORS, SAFE_URL_RE } from "../parser";
 import { renderChildren } from "../renderer";
 
@@ -14,22 +14,22 @@ function safeColor(color: string | undefined, fallback: string): string {
 /**
  * For container/child directives the child inherits the container's `color`
  * unless it sets one of its own. The renderer reads inherited colour from the
- * `data-cue-inherit-color` attribute on the closest container element so that
+ * `data-gloss-inherit-color` attribute on the closest container element so that
  * we don't have to thread state through `renderChildren`.
  */
-function inheritColorFor(node: CueNode, parentColorAttr: string | undefined, fallback: string): string {
+function inheritColorFor(node: GlossNode, parentColorAttr: string | undefined, fallback: string): string {
   return safeColor(node.attrs.color, parentColorAttr ?? fallback);
 }
 
-export function renderLayout(node: CueNode): HTMLElement {
+export function renderLayout(node: GlossNode): HTMLElement {
   switch (node.name) {
     case "card": {
       const inner = document.createElement("div");
-      inner.className = `cue-card cue-color-${safeColor(node.attrs.color, "gray")}`;
+      inner.className = `gloss-card gloss-color-${safeColor(node.attrs.color, "gray")}`;
 
       if (node.attrs.title) {
         const titleDiv = document.createElement("div");
-        titleDiv.className = "cue-card-title";
+        titleDiv.className = "gloss-card-title";
         titleDiv.textContent = node.attrs.title;
         inner.appendChild(titleDiv);
       }
@@ -39,7 +39,7 @@ export function renderLayout(node: CueNode): HTMLElement {
       if (isSafeHref(node.attrs.href)) {
         const a = document.createElement("a");
         a.href = node.attrs.href;
-        a.className = "cue-card-link";
+        a.className = "gloss-card-link";
         a.style.textDecoration = "none";
         a.style.color = "inherit";
         a.appendChild(inner);
@@ -54,7 +54,7 @@ export function renderLayout(node: CueNode): HTMLElement {
       const parentBorder = node.attrs.border === "none" ? "none" : "solid";
 
       const cellChildren = node.children.filter(
-        (c): c is CueNode => c.kind === "cue" && c.name === "cell",
+        (c): c is GlossNode => c.kind === "cue" && c.name === "cell",
       );
       const cellCount = cellChildren.length;
 
@@ -69,11 +69,11 @@ export function renderLayout(node: CueNode): HTMLElement {
       else cols = Math.max(1, cellCount || 2);
 
       const div = document.createElement("div");
-      const borderClass = parentBorder === "none" ? " cue-border-none" : "";
-      div.className = `cue-grid cue-color-${parentColor}${borderClass}`;
+      const borderClass = parentBorder === "none" ? " gloss-border-none" : "";
+      div.className = `gloss-grid gloss-color-${parentColor}${borderClass}`;
       div.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
       if (hasRows) div.style.gridTemplateRows = `repeat(${rowsAttr}, auto)`;
-      div.setAttribute("data-cue-parent-color", parentColor);
+      div.setAttribute("data-gloss-parent-color", parentColor);
       for (const child of node.children) {
         if (child.kind === "cue" && child.name === "cell") {
           div.appendChild(renderCell(child, parentColor, parentBorder));
@@ -91,7 +91,7 @@ export function renderLayout(node: CueNode): HTMLElement {
     case "steps": {
       const parentColor = safeColor(node.attrs.color, "blue");
       const ol = document.createElement("ol");
-      ol.className = `cue-steps cue-color-${parentColor}`;
+      ol.className = `gloss-steps gloss-color-${parentColor}`;
       for (const child of node.children) {
         if (child.kind === "cue" && child.name === "step") {
           ol.appendChild(renderStep(child, parentColor));
@@ -114,14 +114,14 @@ export function renderLayout(node: CueNode): HTMLElement {
   }
 }
 
-function renderCell(node: CueNode, parentColor: string, parentBorder: "solid" | "none"): HTMLElement {
+function renderCell(node: GlossNode, parentColor: string, parentBorder: "solid" | "none"): HTMLElement {
   const div = document.createElement("div");
   const color = inheritColorFor(node, parentColor, "gray");
   const ownBorder = node.attrs.border;
   const effectiveBorder: "solid" | "none" =
     ownBorder === "none" ? "none" : ownBorder === "solid" ? "solid" : parentBorder;
-  const borderClass = effectiveBorder === "none" ? " cue-border-none" : effectiveBorder === "solid" ? " cue-border-solid" : "";
-  div.className = `cue-cell cue-color-${color}${borderClass}`;
+  const borderClass = effectiveBorder === "none" ? " gloss-border-none" : effectiveBorder === "solid" ? " gloss-border-solid" : "";
+  div.className = `gloss-cell gloss-color-${color}${borderClass}`;
   if (node.attrs.title) {
     const strong = document.createElement("strong");
     strong.textContent = node.attrs.title;
@@ -131,10 +131,10 @@ function renderCell(node: CueNode, parentColor: string, parentBorder: "solid" | 
   return div;
 }
 
-function renderStep(node: CueNode, parentColor: string): HTMLElement {
+function renderStep(node: GlossNode, parentColor: string): HTMLElement {
   const li = document.createElement("li");
   const color = inheritColorFor(node, parentColor, "blue");
-  li.className = `cue-step cue-color-${color}`;
+  li.className = `gloss-step gloss-color-${color}`;
   if (node.attrs.title) {
     const strong = document.createElement("strong");
     strong.textContent = node.attrs.title;

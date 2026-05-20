@@ -1,4 +1,4 @@
-import type { CueNode } from "../parser";
+import type { GlossNode } from "../parser";
 import { renderChildren } from "../renderer";
 
 const ICONS: Record<string, string> = {
@@ -17,16 +17,16 @@ const DEFAULT_TITLES: Record<string, string> = {
   danger: "Danger",
 };
 
-export function renderCallout(node: CueNode): HTMLElement {
+export function renderCallout(node: GlossNode): HTMLElement {
   const type = node.name;
 
   const div = document.createElement("div");
-  div.className = `cue-callout cue-callout-${type}`;
+  div.className = `gloss-callout gloss-callout-${type}`;
 
   const titleText = node.attrs.title ?? DEFAULT_TITLES[type];
   if (titleText) {
     const titleDiv = document.createElement("div");
-    titleDiv.className = "cue-callout-title";
+    titleDiv.className = "gloss-callout-title";
 
     const icon = document.createElement("span");
     icon.textContent = ICONS[type] ?? "";

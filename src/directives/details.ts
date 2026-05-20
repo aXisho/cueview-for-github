@@ -1,4 +1,4 @@
-import type { CueNode } from "../parser";
+import type { GlossNode } from "../parser";
 import { ALLOWED_COLORS } from "../parser";
 import { renderChildren } from "../renderer";
 
@@ -7,9 +7,9 @@ function safeColor(color: string | undefined, fallback: string): string {
   return fallback;
 }
 
-export function renderDetails(node: CueNode): HTMLElement {
+export function renderDetails(node: GlossNode): HTMLElement {
   const details = document.createElement("details");
-  details.className = `cue-details cue-color-${safeColor(node.attrs.color, "gray")}`;
+  details.className = `gloss-details cue-color-${safeColor(node.attrs.color, "gray")}`;
 
   if (node.attrs.open === "true") {
     details.open = true;

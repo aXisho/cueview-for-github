@@ -1,4 +1,4 @@
-// Cue Markdown parser — returns a CueChild[] tree (not HTML strings).
+// Gloss Markdown parser — returns a GlossChild[] tree (not HTML strings).
 //
 // Recognizes:
 //   - GitHub Alert callouts: > [!NOTE|TIP|IMPORTANT|WARNING|CAUTION] title + body
@@ -9,11 +9,11 @@
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface CueNode {
+export interface GlossNode {
   kind: "cue";
   name: string;
   attrs: Record<string, string>;
-  children: Array<CueNode | TextNode>;
+  children: Array<GlossNode | TextNode>;
   inline: boolean;
   selfClosing: boolean;
 }
@@ -23,7 +23,7 @@ export interface TextNode {
   content: string;
 }
 
-export type CueChild = CueNode | TextNode;
+export type GlossChild = GlossNode | TextNode;
 
 export const ALLOWED_COLORS = ["gray", "blue", "green", "yellow", "red", "purple"] as const;
 export type AllowedColor = (typeof ALLOWED_COLORS)[number];
@@ -52,7 +52,7 @@ const CHILD_DIRECTIVES = ["tab", "step", "cell"];
 const VOID_DIRECTIVES = new Set(["toc"]);
 
 // Directive names recognized as a fenced block (everything that may appear as
-// a code-fence info string and become a CueNode).
+// a code-fence info string and become a GlossNode).
 const FENCED_BLOCK_NAMES = new Set<string>([
   ...BLOCK_DIRECTIVES,
   ...CONTAINER_DIRECTIVES,
@@ -87,7 +87,7 @@ export function parseAttrs(attrsString: string): Record<string, string> {
 
 // ── Inline directive splitter ─────────────────────────────────────────────────
 //
-// Splits a single line into a mix of text segments and inline CueNodes.
+// Splits a single line into a mix of text segments and inline GlossNodes.
 // Pattern: `text`{name attrs}
 //   - The text portion is captured literally (no Markdown is interpreted here).
 //   - The brace block must close on the same line. If it does not, the inline
@@ -95,8 +95,8 @@ export function parseAttrs(attrsString: string): Record<string, string> {
 
 const INLINE_RE = /`([^`\n]+)`\{([a-z][a-z0-9-]*)(\s+[^}\n]*)?\}/gi;
 
-function splitInline(line: string): CueChild[] {
-  const out: CueChild[] = [];
+function splitInline(line: string): GlossChild[] {
+  const out: GlossChild[] = [];
   let lastIdx = 0;
   INLINE_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
@@ -131,13 +131,13 @@ function splitInline(line: string): CueChild[] {
 }
 
 // Apply inline splitting to every line of a text body.
-function applyInlineToText(text: string): CueChild[] {
+function applyInlineToText(text: string): GlossChild[] {
   if (!text) return [];
   // Quick path: no backticks at all → no inline directives possible.
   if (text.indexOf("`") < 0) return [{ kind: "text", content: text }];
 
   const lines = text.split("\n");
-  const out: CueChild[] = [];
+  const out: GlossChild[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -156,7 +156,7 @@ function applyInlineToText(text: string): CueChild[] {
   return mergeTextRuns(out);
 }
 
-function appendText(arr: CueChild[], content: string): void {
+function appendText(arr: GlossChild[], content: string): void {
   const last = arr[arr.length - 1];
   if (last && last.kind === "text") {
     last.content += content;
@@ -165,8 +165,8 @@ function appendText(arr: CueChild[], content: string): void {
   }
 }
 
-function mergeTextRuns(children: CueChild[]): CueChild[] {
-  const out: CueChild[] = [];
+function mergeTextRuns(children: GlossChild[]): GlossChild[] {
+  const out: GlossChild[] = [];
   for (const c of children) {
     if (c.kind === "text") {
       const last = out[out.length - 1];
@@ -310,13 +310,13 @@ function detectFence(lines: string[], start: number): FenceCapture | null {
 
 // ── parse ─────────────────────────────────────────────────────────────────────
 
-export function parseCueMd(source: string): CueChild[] {
+export function parseGlossMd(source: string): GlossChild[] {
   const lines = source.split("\n");
   return parseLines(lines);
 }
 
-function parseLines(lines: string[]): CueChild[] {
-  const out: CueChild[] = [];
+function parseLines(lines: string[]): GlossChild[] {
+  const out: GlossChild[] = [];
   /** Accumulated raw text awaiting flush. Lines are joined with `\n`. */
   let textBuf: string[] = [];
   let inFenceBuf = false;
@@ -466,9 +466,4 @@ function parseLines(lines: string[]): CueChild[] {
   return mergeTextRuns(out);
 }
 
-// ── Back-compat exports (deprecated, alias to parseCueMd) ────────────────────
-//
-// content.ts is currently the only caller of these; kept as aliases so any
-// downstream tooling that imported them continues to compile.
-
-export const parseCueMdToNodes = parseCueMd;
+export const parseGlossMdToNodes = parseGlossMd;

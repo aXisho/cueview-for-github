@@ -22,7 +22,7 @@ import swift from "highlight.js/lib/languages/swift";
 import kotlin from "highlight.js/lib/languages/kotlin";
 import dockerfile from "highlight.js/lib/languages/dockerfile";
 import ini from "highlight.js/lib/languages/ini";
-import type { CueChild, CueNode } from "./parser";
+import type { GlossChild, GlossNode } from "./parser";
 import { renderCallout } from "./directives/callout";
 import { renderTabs } from "./directives/tabs";
 import { renderDetails } from "./directives/details";
@@ -81,22 +81,22 @@ function slugify(text: string): string {
 
 // ── Inline node detection ─────────────────────────────────────────────────────
 
-const INLINE_NAMES = new Set(["badge", "mark", "small", "big", "kbd"]);
+const INLINE_NAMES = new Set(["badge", "small", "big", "kbd"]);
 
-function isInlineNode(child: CueChild): boolean {
+function isInlineNode(child: GlossChild): boolean {
   return child.kind === "cue" && (INLINE_NAMES.has(child.name) || child.inline);
 }
 
-// ── renderCueNode ─────────────────────────────────────────────────────────────
+// ── renderGlossNode ─────────────────────────────────────────────────────────────
 
-export function renderCueNode(node: CueNode): HTMLElement | DocumentFragment {
+export function renderGlossNode(node: GlossNode): HTMLElement | DocumentFragment {
   switch (node.name) {
     case "info": case "tip": case "important": case "warning": case "danger":
       return renderCallout(node);
     case "tabs": case "tab":
       return renderTabs(node);
     case "details": return renderDetails(node);
-    case "badge": case "mark": case "small": case "big": case "kbd":
+    case "badge": case "small": case "big": case "kbd":
       return renderInline(node);
     case "heading":
       return renderHeading(node);
@@ -106,7 +106,7 @@ export function renderCueNode(node: CueNode): HTMLElement | DocumentFragment {
       return renderToc(node);
     default: {
       const el = node.inline ? document.createElement("span") : document.createElement("div");
-      el.className = `cue-unknown cue-unknown-${node.name}`;
+      el.className = `gloss-unknown gloss-unknown-${node.name}`;
       el.appendChild(renderChildren(node.children));
       return el;
     }
@@ -115,14 +115,14 @@ export function renderCueNode(node: CueNode): HTMLElement | DocumentFragment {
 
 const ALLOWED_HEADING_COLORS = new Set(["gray", "blue", "green", "yellow", "red", "purple"]);
 
-function renderHeading(node: CueNode): HTMLElement {
+function renderHeading(node: GlossNode): HTMLElement {
   const rawColor = node.attrs.color ?? "gray";
   const color = ALLOWED_HEADING_COLORS.has(rawColor) ? rawColor : "gray";
   const rawLevel = parseInt(node.attrs.level ?? "2", 10);
   const level = Number.isFinite(rawLevel) ? Math.min(Math.max(rawLevel, 1), 6) : 2;
   const tagName = `h${level}` as const;
   const el = document.createElement(tagName);
-  el.className = `cue-heading cue-heading-color-${color}`;
+  el.className = `gloss-heading gloss-heading-color-${color}`;
   const text = node.children
     .filter((c): c is { kind: "text"; content: string } => c.kind === "text")
     .map((c) => c.content)
@@ -130,7 +130,7 @@ function renderHeading(node: CueNode): HTMLElement {
   if (text) el.id = slugify(text);
   for (const c of node.children) {
     if (c.kind === "text") el.appendChild(document.createTextNode(c.content));
-    else el.appendChild(renderCueNode(c));
+    else el.appendChild(renderGlossNode(c));
   }
   return el;
 }
@@ -140,12 +140,12 @@ function renderHeading(node: CueNode): HTMLElement {
 // The key problem: a TextNode like "## Inline Directives\n\nThis API is "
 // contains a blank line (\n\n). The part before the blank line is block-level
 // markdown. The part after ("This API is ") is the start of a paragraph that
-// continues with inline CueNodes (badge, kbd, etc.).
+// continues with inline GlossNodes (badge, kbd, etc.).
 //
 // Strategy:
 //   1. Split each TextNode on blank lines into "paragraphs" (chunks separated
 //      by \n\n). All chunks except the last are flushed as block markdown.
-//      The last chunk may continue into the next sibling inline CueNode.
+//      The last chunk may continue into the next sibling inline GlossNode.
 //   2. When the tail of a TextNode + the next sibling are inline-compatible,
 //      collect the entire run (tail + inline nodes + more text tails) into
 //      one <p> rendered with parseInline().
@@ -154,7 +154,7 @@ type FlatItem =
   | { kind: "block-text"; content: string }   // flush as marked.parse()
   | { kind: "inline-text"; content: string }  // part of an inline run
   | { kind: "paragraph-break" }               // forces a new inline run
-  | { kind: "cue"; node: CueNode };           // CueNode
+  | { kind: "cue"; node: GlossNode };           // GlossNode
 
 /**
  * Split a text body on blank lines, but treat fenced code blocks as opaque
@@ -213,7 +213,7 @@ function splitOnBlankLines(text: string): { chunks: string[]; endedWithBlank: bo
  * Expand children into a flat list of FlatItems, splitting TextNodes on
  * blank lines so the tail of each TextNode can join an inline run.
  */
-function flatten(children: CueChild[]): FlatItem[] {
+function flatten(children: GlossChild[]): FlatItem[] {
   const items: FlatItem[] = [];
 
   for (let i = 0; i < children.length; i++) {
@@ -273,14 +273,14 @@ function flatten(children: CueChild[]): FlatItem[] {
   return items;
 }
 
-export function renderChildren(children: CueChild[]): DocumentFragment {
+export function renderChildren(children: GlossChild[]): DocumentFragment {
   const frag = document.createDocumentFragment();
   const items = flatten(children);
 
   // marked-footnote requires all footnote references and definitions to appear
   // in the same marked.parse() call. Strategy: build one combined markdown
   // string with HTML comment placeholders for non-text items (inline runs and
-  // block CueNodes), parse once, then replace each placeholder comment with
+  // block GlossNodes), parse once, then replace each placeholder comment with
   // the real DOM node in-place before moving children into the fragment.
   const PLACEHOLDER = "cuemd-ph";
   const slots = new Map<number, Element>();  // index → pre-built DOM node
@@ -310,7 +310,7 @@ export function renderChildren(children: CueChild[]): DocumentFragment {
             while (tmp.firstChild) p.appendChild(tmp.firstChild);
           }
         } else if (cur.kind === "cue") {
-          p.appendChild(renderCueNode(cur.node));
+          p.appendChild(renderGlossNode(cur.node));
         }
         i++;
       }
@@ -325,7 +325,7 @@ export function renderChildren(children: CueChild[]): DocumentFragment {
     if (item.kind === "cue") {
       const idx = slots.size;
       const el = document.createElement("div");
-      el.appendChild(renderCueNode(item.node));
+      el.appendChild(renderGlossNode(item.node));
       slots.set(idx, el);
       md += `<!--${PLACEHOLDER}-${idx}-->\n\n`;
       i++;
@@ -366,7 +366,7 @@ export function renderChildren(children: CueChild[]): DocumentFragment {
 
 // ── renderInlineChildren (for badge/kbd/mark/small content) ──────────────────
 
-export function renderInlineChildren(children: CueChild[]): DocumentFragment {
+export function renderInlineChildren(children: GlossChild[]): DocumentFragment {
   const frag = document.createDocumentFragment();
   for (const child of children) {
     if (child.kind === "text") {
@@ -379,7 +379,7 @@ export function renderInlineChildren(children: CueChild[]): DocumentFragment {
         frag.appendChild(document.createTextNode(child.content));
       }
     } else {
-      frag.appendChild(renderCueNode(child));
+      frag.appendChild(renderGlossNode(child));
     }
   }
   return frag;
