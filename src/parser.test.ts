@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAttrs, parseCueMd } from "./parser";
+import { parseAttrs, parseGlossMd } from "./parser";
 
 describe("parseAttrs", () => {
   it("parses quoted, unquoted, and boolean attributes", () => {
@@ -25,9 +25,9 @@ describe("parseAttrs", () => {
   });
 });
 
-describe("parseCueMd — callouts (GitHub Alert form)", () => {
+describe("parseGlossMd — callouts (GitHub Alert form)", () => {
   it("recognizes [!NOTE] as info", () => {
-    const nodes = parseCueMd([
+    const nodes = parseGlossMd([
       "> [!NOTE] Heads up",
       "> Read the docs.",
     ].join("\n"));
@@ -52,33 +52,33 @@ describe("parseCueMd — callouts (GitHub Alert form)", () => {
       ["CAUTION", "danger"],
     ];
     for (const [alertType, directive] of cases) {
-      const nodes = parseCueMd(`> [!${alertType}]\n> body`);
+      const nodes = parseGlossMd(`> [!${alertType}]\n> body`);
       expect(nodes).toHaveLength(1);
       expect((nodes[0] as { name: string }).name).toBe(directive);
     }
   });
 
-  it("treats unknown alert types as plain blockquotes (no CueNode)", () => {
+  it("treats unknown alert types as plain blockquotes (no GlossNode)", () => {
     const src = "> [!BUG] Tracking\n> See #42.";
-    const nodes = parseCueMd(src);
+    const nodes = parseGlossMd(src);
     expect(nodes).toHaveLength(1);
     expect(nodes[0].kind).toBe("text");
   });
 
   it("alert TYPE matching is case-insensitive", () => {
-    const nodes = parseCueMd("> [!warning] hi\n> body");
+    const nodes = parseGlossMd("> [!warning] hi\n> body");
     expect((nodes[0] as { name: string }).name).toBe("warning");
   });
 
   it("uses no title attribute when first line has only [!TYPE]", () => {
-    const nodes = parseCueMd("> [!TIP]\n> body");
+    const nodes = parseGlossMd("> [!TIP]\n> body");
     expect((nodes[0] as { attrs: Record<string, string> }).attrs).toEqual({});
   });
 });
 
-describe("parseCueMd — fenced block directives", () => {
+describe("parseGlossMd — fenced block directives", () => {
   it("parses a details directive with attrs", () => {
-    const nodes = parseCueMd([
+    const nodes = parseGlossMd([
       "```details title=\"Trace\" color=red",
       "Body text.",
       "```",
@@ -96,7 +96,7 @@ describe("parseCueMd — fenced block directives", () => {
   });
 
   it("matches fenced directive names case-insensitively", () => {
-    const nodes = parseCueMd([
+    const nodes = parseGlossMd([
       "```Details TITLE=\"Trace\" COLOR=red",
       "Body text.",
       "```",
@@ -118,7 +118,7 @@ describe("parseCueMd — fenced block directives", () => {
       "```",
     ].join("\n");
 
-    const nodes = parseCueMd(src);
+    const nodes = parseGlossMd(src);
     expect(nodes).toHaveLength(1);
     expect(nodes[0].kind).toBe("text");
     expect((nodes[0] as { content: string }).content).toContain("```js");
@@ -137,7 +137,7 @@ describe("parseCueMd — fenced block directives", () => {
       "````",
     ].join("\n");
 
-    const nodes = parseCueMd(src);
+    const nodes = parseGlossMd(src);
     expect(nodes).toHaveLength(1);
     const tabs = nodes[0] as { name: string; children: Array<{ kind: string; name?: string }> };
     expect(tabs.name).toBe("tabs");
@@ -156,7 +156,7 @@ describe("parseCueMd — fenced block directives", () => {
       "````",
     ].join("\n");
 
-    const nodes = parseCueMd(src);
+    const nodes = parseGlossMd(src);
     const tabs = nodes[0] as { children: Array<{ kind: string; name?: string; children?: unknown[] }> };
     const tab = tabs.children.find((c) => c.kind === "cue" && c.name === "tab");
     expect(tab).toBeDefined();
@@ -166,9 +166,9 @@ describe("parseCueMd — fenced block directives", () => {
   });
 });
 
-describe("parseCueMd — void directives (Alert-extended)", () => {
+describe("parseGlossMd — void directives (Alert-extended)", () => {
   it("recognizes [!toc] as a void directive", () => {
-    const nodes = parseCueMd("> [!toc title=\"Contents\" depth=3]");
+    const nodes = parseGlossMd("> [!toc title=\"Contents\" depth=3]");
     expect(nodes).toHaveLength(1);
     expect(nodes[0]).toMatchObject({
       kind: "cue",
@@ -180,9 +180,9 @@ describe("parseCueMd — void directives (Alert-extended)", () => {
   });
 });
 
-describe("parseCueMd — inline directives", () => {
+describe("parseGlossMd — inline directives", () => {
   it("parses `text`{name attrs}", () => {
-    const nodes = parseCueMd("API is `Stable`{badge color=green} today.");
+    const nodes = parseGlossMd("API is `Stable`{badge color=green} today.");
     expect(nodes).toMatchObject([
       { kind: "text", content: "API is " },
       {
@@ -197,7 +197,7 @@ describe("parseCueMd — inline directives", () => {
   });
 
   it("matches inline directive names case-insensitively", () => {
-    const nodes = parseCueMd("API is `Stable`{Badge COLOR=green} today.");
+    const nodes = parseGlossMd("API is `Stable`{Badge COLOR=green} today.");
     expect(nodes).toMatchObject([
       { kind: "text", content: "API is " },
       {
@@ -210,20 +210,20 @@ describe("parseCueMd — inline directives", () => {
   });
 
   it("leaves bare inline code spans untouched", () => {
-    const nodes = parseCueMd("Use `npm install` to install.");
+    const nodes = parseGlossMd("Use `npm install` to install.");
     expect(nodes).toHaveLength(1);
     expect(nodes[0].kind).toBe("text");
   });
 
-  it("parses kbd, mark, small inline", () => {
-    const nodes = parseCueMd("Press `Ctrl + S`{kbd}.");
+  it("parses kbd inline", () => {
+    const nodes = parseGlossMd("Press `Ctrl + S`{kbd}.");
     expect((nodes[1] as { name: string }).name).toBe("kbd");
   });
 });
 
-describe("parseCueMd — heading promotion", () => {
+describe("parseGlossMd — heading promotion", () => {
   it("promotes ## `Title`{heading color=blue} to a heading CueNode", () => {
-    const nodes = parseCueMd("## `Section Title`{heading color=blue}");
+    const nodes = parseGlossMd("## `Section Title`{heading color=blue}");
     expect(nodes).toMatchObject([
       {
         kind: "cue",
@@ -237,7 +237,7 @@ describe("parseCueMd — heading promotion", () => {
   });
 
   it("matches heading directive names case-insensitively", () => {
-    const nodes = parseCueMd("## `Section Title`{Heading COLOR=blue}");
+    const nodes = parseGlossMd("## `Section Title`{Heading COLOR=blue}");
     expect(nodes).toMatchObject([
       {
         kind: "cue",
@@ -248,7 +248,7 @@ describe("parseCueMd — heading promotion", () => {
   });
 
   it("captures heading level from the marker length", () => {
-    const nodes = parseCueMd("###### `Sub`{heading}");
+    const nodes = parseGlossMd("###### `Sub`{heading}");
     expect((nodes[0] as { attrs: Record<string, string> }).attrs.level).toBe("6");
   });
 
@@ -257,7 +257,7 @@ describe("parseCueMd — heading promotion", () => {
     // `heading` inline directive. When extra text is present, no block-level
     // heading CueNode (inline=false) is produced — inline parses may still
     // surface the directive inline.
-    const nodes = parseCueMd("## intro `Sub`{heading color=blue}");
+    const nodes = parseGlossMd("## intro `Sub`{heading color=blue}");
     const promoted = nodes.find(
       (n) => n.kind === "cue" && (n as { name: string }).name === "heading" && (n as { inline: boolean }).inline === false,
     );
@@ -265,18 +265,18 @@ describe("parseCueMd — heading promotion", () => {
   });
 });
 
-describe("parseCueMd — big inline directive", () => {
+describe("parseGlossMd — big inline directive", () => {
   it("parses `text`{big}", () => {
-    const nodes = parseCueMd("The score is `1,247`{big} today.");
+    const nodes = parseGlossMd("The score is `1,247`{big} today.");
     const big = nodes.find((n) => n.kind === "cue" && (n as { name: string }).name === "big");
     expect(big).toBeDefined();
     expect((big as { children: Array<{ content: string }> }).children[0].content).toBe("1,247");
   });
 });
 
-describe("parseCueMd — grid attributes", () => {
+describe("parseGlossMd — grid attributes", () => {
   it("captures cols, rows, and border on grid", () => {
-    const nodes = parseCueMd([
+    const nodes = parseGlossMd([
       "````grid cols=2 rows=3 border=none",
       "```cell",
       "A",
@@ -291,7 +291,7 @@ describe("parseCueMd — grid attributes", () => {
   });
 
   it("does not require cols (auto-fit case)", () => {
-    const nodes = parseCueMd([
+    const nodes = parseGlossMd([
       "````grid border=none",
       "```cell",
       "A",
@@ -309,9 +309,9 @@ describe("parseCueMd — grid attributes", () => {
   });
 });
 
-describe("parseCueMd — grid border=none", () => {
+describe("parseGlossMd — grid border=none", () => {
   it("records border=none on grid and cell", () => {
-    const nodes = parseCueMd([
+    const nodes = parseGlossMd([
       "````grid cols=2 border=none",
       "```cell",
       "A",
@@ -331,7 +331,7 @@ describe("parseCueMd — grid border=none", () => {
   });
 });
 
-describe("parseCueMd — pass-through behaviour", () => {
+describe("parseGlossMd — pass-through behaviour", () => {
   it("does not parse alerts inside fenced code blocks (verbatim passthrough)", () => {
     const src = [
       "Before.",
@@ -342,7 +342,7 @@ describe("parseCueMd — pass-through behaviour", () => {
       "After.",
     ].join("\n");
 
-    const nodes = parseCueMd(src);
+    const nodes = parseGlossMd(src);
     // No callout CueNode should appear; entire run is text.
     const hasCallout = nodes.some((n) => n.kind === "cue" && (n as { name: string }).name === "warning");
     expect(hasCallout).toBe(false);

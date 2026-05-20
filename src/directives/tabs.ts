@@ -1,4 +1,4 @@
-import type { CueNode } from "../parser";
+import type { GlossNode } from "../parser";
 import { ALLOWED_COLORS } from "../parser";
 import { renderChildren } from "../renderer";
 
@@ -7,14 +7,14 @@ function safeColor(color: string | undefined, fallback: string): string {
   return fallback;
 }
 
-export function renderTabs(node: CueNode): HTMLElement {
+export function renderTabs(node: GlossNode): HTMLElement {
   // A bare `tab` (no `tabs` parent) is rendered standalone — show its title
   // and body without the tab-strip chrome. This corresponds to diagnostic
   // CUE005 (tab outside tabs) which the parser does not enforce.
   if (node.name === "tab") {
     const orphan = document.createElement("div");
     const color = safeColor(node.attrs.color, "blue");
-    orphan.className = `cue-tab-orphan cue-color-${color}`;
+    orphan.className = `gloss-tab-orphan gloss-color-${color}`;
     if (node.attrs.title) {
       const strong = document.createElement("strong");
       strong.textContent = node.attrs.title;
@@ -24,15 +24,15 @@ export function renderTabs(node: CueNode): HTMLElement {
     return orphan;
   }
 
-  // Collect direct CueNode children with name === "tab"
+  // Collect direct GlossNode children with name === "tab"
   const tabs = node.children.filter(
-    (c): c is CueNode => c.kind === "cue" && c.name === "tab"
+    (c): c is GlossNode => c.kind === "cue" && c.name === "tab"
   );
 
   const parentColor = safeColor(node.attrs.color, "blue");
 
   const wrapper = document.createElement("div");
-  wrapper.className = `cue-tabs cue-color-${parentColor}`;
+  wrapper.className = `gloss-tabs gloss-color-${parentColor}`;
 
   if (tabs.length === 0) {
     // No tab children — render contents as-is
@@ -42,12 +42,12 @@ export function renderTabs(node: CueNode): HTMLElement {
 
   // Tab bar
   const bar = document.createElement("div");
-  bar.className = "cue-tabs-bar";
+  bar.className = "gloss-tabs-bar";
   bar.setAttribute("role", "tablist");
 
   // Panel container
   const panel = document.createElement("div");
-  panel.className = "cue-tabs-panel";
+  panel.className = "gloss-tabs-panel";
   panel.setAttribute("role", "tabpanel");
 
   // Active index managed in closure
@@ -63,7 +63,7 @@ export function renderTabs(node: CueNode): HTMLElement {
   tabs.forEach((tab, idx) => {
     const btn = document.createElement("button");
     const tabColor = safeColor(tab.attrs.color, parentColor);
-    btn.className = `cue-tabs-btn cue-color-${tabColor}` + (idx === 0 ? " active" : "");
+    btn.className = `gloss-tabs-btn gloss-color-${tabColor}` + (idx === 0 ? " active" : "");
     btn.setAttribute("role", "tab");
     btn.setAttribute("aria-selected", idx === 0 ? "true" : "false");
     btn.textContent = tab.attrs.title ?? `Tab ${idx + 1}`;

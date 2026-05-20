@@ -1,21 +1,17 @@
-# CueView for GitHub
+# GlossView for GitHub
 
-A Chrome extension that renders [Cue Markdown](../cuemd/) directives on GitHub pages. When you browse a `.cue.md` or `.cuemd` file on GitHub, the extension intercepts the page and transforms directive markup into rich UI — callouts, tabs, badges, grids, steps, and more.
-
-Both extensions use the same Cue Markdown syntax. `.cue.md` is the GitHub-compatible form (renders sensibly without a viewer); `.cuemd` is the viewer-only form (shown as raw text by GitHub, fully rendered by this extension).
+A Chrome extension that renders [Gloss Markdown](https://github.com/aXisho/glossmd) directives on GitHub pages. When you browse a `.gloss.md` file on GitHub, the extension intercepts the page and transforms directive markup into rich UI — callouts, tabs, badges, grids, steps, and more.
 
 ## What it does
 
-GitHub already renders most Cue Markdown directives readably out of the box (Alert callouts, fenced code blocks, inline code spans). This extension upgrades the experience further:
+GitHub already renders most Gloss Markdown directives readably out of the box (Alert callouts, fenced code blocks, inline code spans). This extension upgrades the experience further:
 
-1. Detects that the current GitHub page is a `.cue.md` or `.cuemd` file.
+1. Detects that the current GitHub page is a `.gloss.md` file.
 2. Fetches the raw source from `raw.githubusercontent.com`.
-3. Parses the Cue Markdown directive tree.
-4. Re-renders the page's markdown container with the full Cue Markdown output: directive blocks are replaced with styled DOM elements (tabbed interfaces, collapsible details, color-coded callouts, etc.), and plain Markdown text is rendered via [marked.js](https://marked.js.org/).
+3. Parses the Gloss Markdown directive tree.
+4. Re-renders the page's markdown container with the full Gloss Markdown output: directive blocks are replaced with styled DOM elements (tabbed interfaces, collapsible details, color-coded callouts, etc.), and plain Markdown text is rendered via [marked.js](https://marked.js.org/).
 
 ## Supported directives
-
-All directives follow the [Cue Markdown syntax guide](../cuemd/docs/syntax.md).
 
 | Directive | Form | Description |
 |-----------|------|-------------|
@@ -24,10 +20,9 @@ All directives follow the [Cue Markdown syntax guide](../cuemd/docs/syntax.md).
 | `card` | ` ```card ` fence | Bordered card (optionally linked) |
 | `tabs` / `tab` | ` ````tabs ` + nested ` ```tab ` | Tabbed content |
 | `steps` / `step` | ` ````steps ` + nested ` ```step ` | Numbered step list |
-| `grid` / `cell` | ` ````grid ` + nested ` ```cell ` (supports `cols`/`rows`/`border=none`) | CSS grid layout (covers multi-column text via `border=none`) |
+| `grid` / `cell` | ` ````grid ` + nested ` ```cell ` (supports `cols`/`rows`/`border=none`) | CSS grid layout |
 | `toc` | `> [!toc ...]` | Auto-generated table of contents |
 | `badge` | `` `text`{badge ...} `` | Inline pill badge |
-| `mark` | `` `text`{mark ...} `` | Inline highlight |
 | `small` | `` `text`{small} `` | Small muted text |
 | `big` | `` `text`{big} `` | Larger emphasis text |
 | `kbd` | `` `text`{kbd} `` | Keyboard key rendering |
@@ -42,7 +37,7 @@ The extension is not yet published to the Chrome Web Store. To install locally:
 1. Build the extension (see below).
 2. Open Chrome and go to `chrome://extensions`.
 3. Enable **Developer mode** (top-right toggle).
-4. Click **Load unpacked** and select the `cueview-for-github/dist/cueview-for-github/` directory.
+4. Click **Load unpacked** and select the `dist/glossview-for-github/` directory.
 
 ## Building
 
@@ -51,7 +46,7 @@ npm install
 npm run build
 ```
 
-This bundles `src/content.ts` (and all imported files) into `dist/cueview-for-github/src/content.js` using [Vite](https://vite.dev/), then creates `dist/cueview-for-github-0.1.0.zip`. Generated JavaScript is kept out of `src/`.
+This bundles `src/content.ts` (and all imported files) into `dist/glossview-for-github/src/content.js` using [Vite](https://vite.dev/), then creates `dist/glossview-for-github-0.1.1.zip`. Generated JavaScript is kept out of `src/`.
 
 To watch for changes during development:
 
@@ -74,22 +69,22 @@ Unit tests run with [Vitest](https://vitest.dev/).
 ```
 GitHub page (blob view)
   └─ content.ts runs at document_idle
-       ├─ isCueMdPath() → true for .cue.md / .cuemd files (or exits)
+       ├─ isGlossMdPath() → true for .gloss.md files (or exits)
        ├─ getRawUrl() → https://raw.githubusercontent.com/owner/repo/branch/path
        ├─ fetch(rawUrl) → raw source text
-       ├─ parseCueMd(raw) → CueChild[] tree
+       ├─ parseGlossMd(raw) → GlossChild[] tree
        ├─ renderChildren(tree) → DocumentFragment
        └─ container.replaceChildren(fragment) → DOM updated
 ```
 
-The parser (`src/parser.ts`) recognizes the three Cue Markdown directive forms (GitHub Alerts, fenced code blocks, inline code + brace attrs) and produces a tree of `CueNode` / `TextNode` values. The renderer (`src/renderer.ts`) walks the tree and delegates each directive to its handler in `src/directives/`.
+The parser (`src/parser.ts`) recognizes the three Gloss Markdown directive forms (GitHub Alerts, fenced code blocks, inline code + brace attrs) and produces a tree of `GlossNode` / `TextNode` values. The renderer (`src/renderer.ts`) walks the tree and delegates each directive to its handler in `src/directives/`.
 
 ## Permissions
 
 - `host_permissions: ["https://github.com/*", "https://raw.githubusercontent.com/*"]` — required to inject the content script and fetch raw file content.
 - No background service worker. No storage. No external data collection.
 
-## Limitations (v0.1)
+## Limitations (v0.1.1)
 
 - **Markdown in text nodes uses `innerHTML`** after `marked.parse()`. DOMPurify is not bundled; add it for production use to guard against XSS in repository content.
 - **`toc` directive** reads headings from the live document. Because we re-render the container, headings generated by Markdown text nodes will be present only after the `marked.parse()` pass.

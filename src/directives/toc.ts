@@ -1,14 +1,14 @@
-import type { CueNode } from "../parser";
+import type { GlossNode } from "../parser";
 
-export function renderToc(node: CueNode): HTMLElement {
+export function renderToc(node: GlossNode): HTMLElement {
   const maxDepth = node.attrs.depth ? parseInt(node.attrs.depth, 10) : 3;
 
   const wrapper = document.createElement("div");
-  wrapper.className = "cue-toc";
+  wrapper.className = "gloss-toc";
 
   if (node.attrs.title) {
     const titleDiv = document.createElement("div");
-    titleDiv.className = "cue-toc-title";
+    titleDiv.className = "gloss-toc-title";
     titleDiv.textContent = node.attrs.title;
     wrapper.appendChild(titleDiv);
   }
@@ -27,7 +27,7 @@ function populateToc(wrapper: HTMLElement, maxDepth: number): void {
       'article[data-testid="rendered-markdown-container"] .markdown-body'
     ) ??
     document.querySelector("article.markdown-body") ??
-    document.querySelector('[data-cueview-rendered="true"]') ??
+    document.querySelector('[data-glossview-rendered="true"]') ??
     document;
 
   const headings = Array.from(
