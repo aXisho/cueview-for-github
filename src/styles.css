@@ -236,3 +236,10 @@ h4.gloss-heading, h5.gloss-heading, h6.gloss-heading {
 /* Math (KaTeX MathML output) */
 .gloss-math-block { display: block; text-align: center; margin: 1em 0; overflow-x: auto; }
 .gloss-math-inline { display: inline; }
+
+/* Body line-height — WCAG 2.1 SC 1.4.12: 1.6–1.8 optimal for sustained screen reading.
+   github-markdown-css defaults to 1.5; explicit overrides per GitHub font-size tier. */
+.markdown-body                           { line-height: 1.7; } /* medium 16px */
+[data-font-size="small"]  .markdown-body { line-height: 1.8; } /* small  14px */
+[data-font-size="large"]  .markdown-body { line-height: 1.7; } /* large  18px */
+[data-font-size="xlarge"] .markdown-body { line-height: 1.6; } /* xlarge 20px */
