@@ -423,7 +423,7 @@ function parseLines(lines: string[]): GlossChild[] {
         if (directiveName) {
           // Callout
           flushText();
-          const attrs: Record<string, string> = ac.attrsText ? parseAttrs(ac.attrsText) : {};
+          const attrs: Record<string, string> = {};
           // GitHub alert syntax doesn't support text on the same line as [!TYPE];
           // treat any trailing text as the first body line rather than a title.
           const bodyLines = ac.titleOrTail ? [ac.titleOrTail, ...ac.bodyLines] : ac.bodyLines;
