@@ -1,6 +1,6 @@
 {
   "name": "glossview-for-github",
-  "version": "0.2.0",
+  "version": "0.1.1",
   "description": "Chrome extension: renders Gloss Markdown directives on GitHub",
   "scripts": {
     "build": "npm run build:stage && npm run build:bundle && npm run package",
