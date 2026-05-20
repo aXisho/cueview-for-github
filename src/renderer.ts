@@ -1,5 +1,6 @@
 import { marked, Renderer } from "marked";
 import markedFootnote from "marked-footnote";
+import markedKatex from "marked-katex-extension";
 import hljs from "highlight.js/lib/core";
 import javascript from "highlight.js/lib/languages/javascript";
 import typescript from "highlight.js/lib/languages/typescript";
@@ -29,6 +30,7 @@ import { renderDetails } from "./directives/details";
 import { renderInline } from "./directives/inline";
 import { renderLayout } from "./directives/layout";
 import { renderToc } from "./directives/toc";
+import { renderEmbed } from "./directives/embed";
 
 // ── highlight.js ──────────────────────────────────────────────────────────────
 
@@ -63,15 +65,29 @@ function hljsHighlight(code: string, lang: string): string {
 
 // ── marked: custom renderer for syntax-highlighted code blocks ───────────────
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 const renderer = new Renderer();
 renderer.code = function ({ text, lang }: { text: string; lang?: string }): string {
-  const language = lang ?? "";
+  const langStr = lang ?? "";
+  const colonIdx = langStr.indexOf(":");
+  const language = colonIdx >= 0 ? langStr.slice(0, colonIdx) : langStr;
+  const filename = colonIdx >= 0 ? langStr.slice(colonIdx + 1) : "";
+
   const highlighted = hljsHighlight(text, language);
   const cls = language ? ` class="language-${language} hljs"` : ' class="hljs"';
-  return `<pre><code${cls}>${highlighted}</code></pre>\n`;
+  const codeBlock = `<pre><code${cls}>${highlighted}</code></pre>`;
+
+  if (filename) {
+    return `<div class="gloss-code-block"><div class="gloss-code-filename">${escapeHtml(filename)}</div>${codeBlock}</div>\n`;
+  }
+  return `${codeBlock}\n`;
 };
 marked.use({ renderer });
 marked.use(markedFootnote());
+marked.use(markedKatex({ throwOnError: false, output: "mathml" }));
 
 // ── Heading slug ──────────────────────────────────────────────────────────────
 
@@ -100,6 +116,8 @@ export function renderGlossNode(node: GlossNode): HTMLElement | DocumentFragment
       return renderInline(node);
     case "heading":
       return renderHeading(node);
+    case "embed":
+      return renderEmbed(node);
     case "grid": case "cell": case "card": case "steps": case "step":
       return renderLayout(node);
     case "toc":
@@ -123,6 +141,9 @@ function renderHeading(node: GlossNode): HTMLElement {
   const tagName = `h${level}` as const;
   const el = document.createElement(tagName);
   el.className = `gloss-heading gloss-heading-color-${color}`;
+  const rawIndent = parseInt(node.attrs.indent ?? "0", 10);
+  const indent = Number.isFinite(rawIndent) && rawIndent > 0 ? rawIndent : 0;
+  if (indent > 0) el.style.marginLeft = `${indent}rem`;
   const text = node.children
     .filter((c): c is { kind: "text"; content: string } => c.kind === "text")
     .map((c) => c.content)
