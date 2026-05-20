@@ -8,16 +8,32 @@ import { renderChildren } from "./renderer";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function isGlossMdPath(): boolean {
-  return window.location.pathname.toLowerCase().endsWith(".gloss.md");
+  const p = window.location.pathname.toLowerCase();
+  return p.endsWith(".gloss.md") || p.endsWith(".gloss");
+}
+
+function isGistPage(): boolean {
+  return window.location.hostname === "gist.github.com";
 }
 
 function getRawUrl(): string | null {
-  const m = window.location.pathname.match(
-    /^\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/
-  );
-  if (!m) return null;
-  const [, owner, repo, branch, path] = m;
-  return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+  const p = window.location.pathname;
+
+  // Regular repo file: /owner/repo/blob/branch/path
+  const blobM = p.match(/^\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/);
+  if (blobM) {
+    const [, owner, repo, branch, path] = blobM;
+    return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+  }
+
+  // Wiki page: /owner/repo/wiki/page-name
+  const wikiM = p.match(/^\/([^/]+)\/([^/]+)\/wiki\/(.+)$/);
+  if (wikiM) {
+    const [, owner, repo, page] = wikiM;
+    return `https://raw.githubusercontent.com/wiki/${owner}/${repo}/${page}`;
+  }
+
+  return null;
 }
 
 function findContainer(): Element | null {
@@ -25,10 +41,38 @@ function findContainer(): Element | null {
     document.querySelector(
       'article[data-testid="rendered-markdown-container"] .markdown-body'
     ) ??
+    document.querySelector("#wiki-body .markdown-body") ??
+    document.querySelector(".wiki-body .markdown-body") ??
     document.querySelector("article.markdown-body") ??
     document.querySelector(".markdown-body") ??
     null
   );
+}
+
+// ── Gist support ──────────────────────────────────────────────────────────────
+
+interface GistGlossFile {
+  container: Element;
+  rawUrl: string;
+}
+
+function findGistGlossFiles(): GistGlossFile[] {
+  const results: GistGlossFile[] = [];
+  for (const fc of document.querySelectorAll(".js-gist-file-update-container")) {
+    const nameEl = fc.querySelector(".gist-blob-name");
+    if (!nameEl) continue;
+    const filename = (nameEl.getAttribute("title") ?? nameEl.textContent ?? "").trim();
+    if (!filename.toLowerCase().endsWith(".gloss.md")) continue;
+
+    const rawLink = fc.querySelector<HTMLAnchorElement>('a[href*="/raw/"]');
+    if (!rawLink) continue;
+
+    const container = fc.querySelector(".markdown-body");
+    if (!container) continue;
+
+    results.push({ container, rawUrl: rawLink.href });
+  }
+  return results;
 }
 
 // ── Hash link handling ────────────────────────────────────────────────────────
@@ -54,9 +98,8 @@ function installHashLinkHandlers(container: Element): void {
 // ── State ─────────────────────────────────────────────────────────────────────
 
 const cachedRaw = new Map<string, string>();
-let containerObserver: MutationObserver | null = null;
+const watchedContainers = new Map<Element, MutationObserver>();
 let bodyObserver: MutationObserver | null = null;
-let watchedContainer: Element | null = null;
 
 const SENTINEL_ATTR = "data-glossview-sentinel";
 const RENDERED_ATTR = "data-glossview-rendered";
@@ -71,23 +114,7 @@ function isOurRendering(container: Element): boolean {
   return !!container.querySelector(`[${SENTINEL_ATTR}]`);
 }
 
-/**
- * Apply our rendered content to `container` and install a MutationObserver
- * that re-applies whenever GitHub overwrites it (e.g. switching back from
- * Blame to Preview tab, or interacting with our tabs directive).
- *
- * Detection strategy: we insert a sentinel <meta> element as the first child.
- * Any DOM mutation triggers a check: if the sentinel is gone, GitHub overwrote
- * us; if it's still there, the change came from our own code (e.g. tab clicks)
- * and we leave it alone.
- */
 function applyAndWatch(container: Element, raw: string): void {
-  if (watchedContainer !== container) {
-    containerObserver?.disconnect();
-    containerObserver = null;
-  }
-  watchedContainer = container;
-
   let applying = false;
 
   const apply = (): void => {
@@ -107,16 +134,26 @@ function applyAndWatch(container: Element, raw: string): void {
 
   apply();
 
-  if (!containerObserver) {
-    containerObserver = new MutationObserver(() => {
+  if (!watchedContainers.has(container)) {
+    const observer = new MutationObserver(() => {
       if (applying) return;
-      if (!watchedContainer || !watchedContainer.isConnected) return;
-      if (!isOurRendering(watchedContainer)) {
+      if (!container.isConnected) {
+        observer.disconnect();
+        watchedContainers.delete(container);
+        return;
+      }
+      if (!isOurRendering(container)) {
         apply();
       }
     });
+    observer.observe(container, { childList: true, subtree: false });
+    watchedContainers.set(container, observer);
   }
-  containerObserver.observe(container, { childList: true, subtree: false });
+}
+
+function clearWatched(): void {
+  for (const obs of watchedContainers.values()) obs.disconnect();
+  watchedContainers.clear();
 }
 
 /**
@@ -132,10 +169,7 @@ function installBodyObserver(): void {
     pending = true;
     queueMicrotask(() => {
       pending = false;
-      if (!isGlossMdPath()) return;
-      const container = findContainer();
-      if (!container) return;
-      if (container === watchedContainer && isOurRendering(container)) return;
+      if (!isGlossMdPath() && !isGistPage()) return;
       main().catch((err) => console.error("[GlossView]", err));
     });
   });
@@ -144,11 +178,34 @@ function installBodyObserver(): void {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
+async function mainGist(): Promise<void> {
+  const files = findGistGlossFiles();
+  for (const { container, rawUrl } of files) {
+    if (watchedContainers.has(container) && isOurRendering(container)) continue;
+
+    let raw = cachedRaw.get(rawUrl);
+    if (raw === undefined) {
+      try {
+        const res = await fetch(rawUrl);
+        if (!res.ok) continue;
+        raw = await res.text();
+        cachedRaw.set(rawUrl, raw);
+      } catch {
+        console.warn("[GlossView] Failed to fetch:", rawUrl);
+        continue;
+      }
+    }
+    applyAndWatch(container, raw);
+  }
+}
+
 async function main(): Promise<void> {
+  if (isGistPage()) {
+    return mainGist();
+  }
+
   if (!isGlossMdPath()) {
-    containerObserver?.disconnect();
-    containerObserver = null;
-    watchedContainer = null;
+    clearWatched();
     return;
   }
 
