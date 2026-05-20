@@ -28,6 +28,23 @@ describe("parseAttrs", () => {
 describe("parseGlossMd — callouts (GitHub Alert form)", () => {
   it("recognizes [!NOTE] as info", () => {
     const nodes = parseGlossMd([
+      "> [!NOTE]",
+      "> Read the docs.",
+    ].join("\n"));
+
+    expect(nodes).toMatchObject([
+      {
+        kind: "cue",
+        name: "info",
+        attrs: {},
+        inline: false,
+        selfClosing: false,
+      },
+    ]);
+  });
+
+  it("treats text on the same line as [!TYPE] as body content, not title", () => {
+    const nodes = parseGlossMd([
       "> [!NOTE] Heads up",
       "> Read the docs.",
     ].join("\n"));
@@ -36,9 +53,8 @@ describe("parseGlossMd — callouts (GitHub Alert form)", () => {
       {
         kind: "cue",
         name: "info",
-        attrs: { title: "Heads up" },
-        inline: false,
-        selfClosing: false,
+        attrs: {},
+        children: [{ kind: "text", content: "Heads up\nRead the docs." }],
       },
     ]);
   });
