@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "highlight.js": "^11.11.1",
+    "katex": "^0.16.47",
     "marked": "^18.0.3",
     "marked-footnote": "^1.4.0"
   }

@@ -347,6 +347,50 @@ describe("parseGlossMd — grid border=none", () => {
   });
 });
 
+describe("parseGlossMd — math directive", () => {
+  it("parses ```math fenced block", () => {
+    const nodes = parseGlossMd(["```math", "E = mc^2", "```"].join("\n"));
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toMatchObject({
+      kind: "cue",
+      name: "math",
+      inline: false,
+      selfClosing: false,
+    });
+    const math = nodes[0] as { children: Array<{ kind: string; content: string }> };
+    expect(math.children[0].content).toBe("E = mc^2");
+  });
+
+  it("parses `expr`{math} as inline directive", () => {
+    const nodes = parseGlossMd("The equation `E = mc^2`{math} is famous.");
+    const mathNode = nodes.find(
+      (n) => n.kind === "cue" && (n as { name: string }).name === "math"
+    );
+    expect(mathNode).toBeDefined();
+    expect((mathNode as { inline: boolean }).inline).toBe(true);
+  });
+});
+
+describe("parseGlossMd — embed directive", () => {
+  it("parses embed fenced block with URL body", () => {
+    const nodes = parseGlossMd([
+      "```embed",
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "```",
+    ].join("\n"));
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toMatchObject({
+      kind: "cue",
+      name: "embed",
+      inline: false,
+      selfClosing: false,
+    });
+    const embed = nodes[0] as { children: Array<{ kind: string; content: string }> };
+    expect(embed.children[0].kind).toBe("text");
+    expect(embed.children[0].content).toContain("youtube.com");
+  });
+});
+
 describe("parseGlossMd — pass-through behaviour", () => {
   it("does not parse alerts inside fenced code blocks (verbatim passthrough)", () => {
     const src = [
