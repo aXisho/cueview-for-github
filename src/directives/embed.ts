@@ -120,6 +120,117 @@ async function renderGistEmbed(wrapper: HTMLElement, url: string): Promise<void>
   }
 }
 
+// ── GitHub blob embed ─────────────────────────────────────────────────────────
+
+const GH_BLOB_RE = /^https?:\/\/github\.com\/[^/]+\/[^/]+\/blob\//i;
+
+export function isGitHubBlobUrl(url: string): boolean {
+  return GH_BLOB_RE.test(url);
+}
+
+function blobToRawUrl(pageUrl: string): string {
+  // https://github.com/user/repo/blob/ref/path → https://raw.githubusercontent.com/user/repo/ref/path
+  return pageUrl
+    .replace(/^https?:\/\/github\.com\//, "https://raw.githubusercontent.com/")
+    .replace(/\/blob\//, "/");
+}
+
+function parseLineRange(hash: string): { start: number; end: number } | null {
+  const h = hash.startsWith("#") ? hash.slice(1) : hash;
+  const single = /^L(\d+)$/.exec(h);
+  if (single) { const n = parseInt(single[1], 10); return { start: n, end: n }; }
+  const range = /^L(\d+)-L(\d+)$/.exec(h);
+  if (range) return { start: parseInt(range[1], 10), end: parseInt(range[2], 10) };
+  return null;
+}
+
+const EXT_LANG: Record<string, string> = {
+  ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
+  py: "python", go: "go", rs: "rust", sh: "bash", bash: "bash",
+  json: "json", yaml: "yaml", yml: "yaml", xml: "xml", html: "html",
+  css: "css", sql: "sql", java: "java", cpp: "cpp", cc: "cpp",
+  c: "c", h: "cpp", hpp: "cpp", cs: "csharp", rb: "ruby",
+  php: "php", swift: "swift", kt: "kotlin", kts: "kotlin",
+  dockerfile: "dockerfile", ini: "ini", toml: "ini",
+};
+
+function extToLang(filename: string): string | null {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  return EXT_LANG[ext] ?? null;
+}
+
+async function renderGitHubEmbed(wrapper: HTMLElement, url: string): Promise<void> {
+  const loading = document.createElement("span");
+  loading.className = "gloss-gist-loading";
+  loading.textContent = "Loading…";
+  wrapper.appendChild(loading);
+
+  try {
+    const urlObj = new URL(url);
+    const lineRange = parseLineRange(urlObj.hash);
+    const rawUrl = blobToRawUrl(url.split("#")[0]);
+    const filename = urlObj.pathname.split("/").pop() ?? "";
+
+    const res = await fetch(rawUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    let content = await res.text();
+
+    let lineInfo: string | null = null;
+    if (lineRange) {
+      const lines = content.split("\n");
+      const start = Math.max(1, lineRange.start);
+      const end = Math.min(lines.length, lineRange.end);
+      content = lines.slice(start - 1, end).join("\n");
+      lineInfo = start === end ? `Line ${start}` : `Lines ${start}–${end}`;
+    }
+
+    wrapper.removeChild(loading);
+    const container = document.createElement("div");
+    container.className = "gloss-gist";
+
+    const fileEl = document.createElement("div");
+    fileEl.className = "gloss-gist-file";
+
+    const header = document.createElement("div");
+    header.className = "gloss-gist-header";
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = filename + (lineInfo ? ` · ${lineInfo}` : "");
+    header.appendChild(link);
+    fileEl.appendChild(header);
+
+    const pre = document.createElement("pre");
+    const code = document.createElement("code");
+    applyHighlight(code, content, extToLang(filename));
+    pre.appendChild(code);
+    fileEl.appendChild(pre);
+    container.appendChild(fileEl);
+
+    const footer = document.createElement("div");
+    footer.className = "gloss-gist-footer";
+    const footerLink = document.createElement("a");
+    footerLink.href = url;
+    footerLink.textContent = "View on GitHub";
+    footerLink.target = "_blank";
+    footerLink.rel = "noopener noreferrer";
+    footer.appendChild(footerLink);
+    container.appendChild(footer);
+
+    wrapper.appendChild(container);
+  } catch {
+    wrapper.textContent = "";
+    const link = document.createElement("a");
+    link.href = url;
+    link.textContent = "View on GitHub";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.className = "gloss-embed-link";
+    wrapper.appendChild(link);
+  }
+}
+
 // ── URL → embed src ───────────────────────────────────────────────────────────
 //
 // Returns the iframe src to use, or null if the URL is not embeddable.
@@ -164,6 +275,11 @@ export function renderEmbed(node: GlossNode): HTMLElement {
   const url = extractText(node.children);
   const wrapper = document.createElement("div");
   wrapper.className = "gloss-embed";
+
+  if (isGitHubBlobUrl(url)) {
+    void renderGitHubEmbed(wrapper, url);
+    return wrapper;
+  }
 
   if (isGistUrl(url)) {
     void renderGistEmbed(wrapper, url);
