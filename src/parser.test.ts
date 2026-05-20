@@ -347,6 +347,30 @@ describe("parseGlossMd — grid border=none", () => {
   });
 });
 
+describe("parseGlossMd — math directive", () => {
+  it("parses ```math fenced block", () => {
+    const nodes = parseGlossMd(["```math", "E = mc^2", "```"].join("\n"));
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toMatchObject({
+      kind: "cue",
+      name: "math",
+      inline: false,
+      selfClosing: false,
+    });
+    const math = nodes[0] as { children: Array<{ kind: string; content: string }> };
+    expect(math.children[0].content).toBe("E = mc^2");
+  });
+
+  it("parses `expr`{math} as inline directive", () => {
+    const nodes = parseGlossMd("The equation `E = mc^2`{math} is famous.");
+    const mathNode = nodes.find(
+      (n) => n.kind === "cue" && (n as { name: string }).name === "math"
+    );
+    expect(mathNode).toBeDefined();
+    expect((mathNode as { inline: boolean }).inline).toBe(true);
+  });
+});
+
 describe("parseGlossMd — embed directive", () => {
   it("parses embed fenced block with URL body", () => {
     const nodes = parseGlossMd([

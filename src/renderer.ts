@@ -1,6 +1,5 @@
 import { marked, Renderer } from "marked";
 import markedFootnote from "marked-footnote";
-import markedKatex from "marked-katex-extension";
 import hljs from "highlight.js/lib/core";
 import javascript from "highlight.js/lib/languages/javascript";
 import typescript from "highlight.js/lib/languages/typescript";
@@ -31,6 +30,7 @@ import { renderInline } from "./directives/inline";
 import { renderLayout } from "./directives/layout";
 import { renderToc } from "./directives/toc";
 import { renderEmbed } from "./directives/embed";
+import { renderMath } from "./directives/math";
 
 // ── highlight.js ──────────────────────────────────────────────────────────────
 
@@ -87,7 +87,6 @@ renderer.code = function ({ text, lang }: { text: string; lang?: string }): stri
 };
 marked.use({ renderer });
 marked.use(markedFootnote());
-marked.use(markedKatex({ throwOnError: false, output: "mathml" }));
 
 // ── Heading slug ──────────────────────────────────────────────────────────────
 
@@ -118,6 +117,8 @@ export function renderGlossNode(node: GlossNode): HTMLElement | DocumentFragment
       return renderHeading(node);
     case "embed":
       return renderEmbed(node);
+    case "math":
+      return renderMath(node);
     case "grid": case "cell": case "card": case "steps": case "step":
       return renderLayout(node);
     case "toc":
