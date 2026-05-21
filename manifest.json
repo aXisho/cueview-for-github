@@ -21,6 +21,7 @@
     "https://github.com/*",
     "https://gist.github.com/*",
     "https://raw.githubusercontent.com/*",
-    "https://gist.githubusercontent.com/*"
+    "https://gist.githubusercontent.com/*",
+    "https://api.github.com/*"
   ]
 }
