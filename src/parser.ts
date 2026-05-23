@@ -26,7 +26,6 @@ export interface TextNode {
 export type GlossChild = GlossNode | TextNode;
 
 export const ALLOWED_COLORS = ["gray", "blue", "green", "yellow", "red", "purple"] as const;
-export type AllowedColor = (typeof ALLOWED_COLORS)[number];
 
 export const SAFE_URL_RE = /^(https?:\/\/|\.\.?\/|\/[^/]|#)/;
 
