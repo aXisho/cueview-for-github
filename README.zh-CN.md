@@ -19,6 +19,10 @@ GitHub 本身已能较好地渲染大多数 Gloss Markdown directive（Alert 标
 
 在编辑 `.gloss.md` 文件时点击 **Preview** 标签，扩展会就地增强 GitHub 自己渲染的预览——无需重新获取原始源码，直接替换 Gloss 围栏 directive 块（包括 heading、inline 和 TOC directive）。这意味着预览会反映你尚未保存的编辑。
 
+**Wiki 页面**：
+
+自动检测页面名以 `.gloss.md` 或 `.gloss` 结尾的 Wiki 页面（例如 `/owner/repo/wiki/Page-Name.gloss.md`），从 `raw.githubusercontent.com/wiki/` 获取原始内容并渲染。
+
 **Gist 页面**：
 
 自动检测文件名以 `.gloss.md` 或 `.gloss` 结尾的 Gist 文件，从 `gist.githubusercontent.com` 获取原始内容并渲染。
@@ -102,6 +106,13 @@ GitHub 编辑页预览 (/edit/ URL, Preview 标签)
        │    ├─ Pass 3: 行内 directive (badge/kbd/small/big)
        │    └─ Pass 4: toc blockquote
        └─ 预置 sentinel 防止重复处理
+
+GitHub Wiki 页面 (/wiki/ URL，页面名以 .gloss.md / .gloss 结尾)
+  └─ content.ts 在 document_idle 时运行
+       ├─ isGlossMdPath() → true
+       ├─ getRawUrl() → https://raw.githubusercontent.com/wiki/...
+       ├─ fetch(rawUrl) → 原始源码文本
+       └─ applyAndWatch(container, raw) → 与 blob 视图相同的渲染路径
 
 GitHub Gist 页面
   └─ content.ts 扫描 .js-gist-file-update-container 元素

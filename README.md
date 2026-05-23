@@ -19,6 +19,10 @@ GitHub already renders most Gloss Markdown directives readably out of the box (A
 
 When you click the **Preview** tab while editing a `.gloss.md` file, the extension enhances GitHub's own rendered preview in place — replacing Gloss fenced directive blocks (and heading, inline, and TOC directives) without re-fetching the raw source. This means the preview reflects your unsaved edits.
 
+**Wiki pages**:
+
+Wiki pages whose names end in `.gloss.md` or `.gloss` (e.g. `/owner/repo/wiki/Page-Name.gloss.md`) are detected and rendered automatically, fetching the raw content from `raw.githubusercontent.com/wiki/`.
+
 **Gist pages**:
 
 Gist files whose names end in `.gloss.md` or `.gloss` are detected and rendered automatically, fetching the raw content from `gist.githubusercontent.com`.
@@ -102,6 +106,13 @@ GitHub edit page preview (/edit/ URL, Preview tab)
        │    ├─ Pass 3: inline directives (badge/kbd/small/big)
        │    └─ Pass 4: toc blockquotes
        └─ sentinel prepended to prevent double-processing
+
+GitHub Wiki page (/wiki/ URL, page name ends in .gloss.md / .gloss)
+  └─ content.ts runs at document_idle
+       ├─ isGlossMdPath() → true
+       ├─ getRawUrl() → https://raw.githubusercontent.com/wiki/...
+       ├─ fetch(rawUrl) → raw source text
+       └─ applyAndWatch(container, raw) → same render path as blob view
 
 GitHub Gist page
   └─ content.ts scans .js-gist-file-update-container elements
