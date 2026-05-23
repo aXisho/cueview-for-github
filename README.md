@@ -120,9 +120,3 @@ The parser (`src/parser.ts`) recognizes the three Gloss Markdown directive forms
 - `https://gist.githubusercontent.com/*` — fetch raw Gist file content.
 
 No background service worker. No storage. No external data collection.
-
-## Known limitations
-
-- **GitHub UI changes**: GitHub occasionally restructures its page markup. If the extension stops working, check whether `article[data-testid="rendered-markdown-container"] .markdown-body` or `.markdown-body` still matches the rendered content container.
-- **SPA navigation**: The extension listens for `turbo:load`, `turbo:render`, and `pjax:end` events. If GitHub migrates to a different router these may need updating.
-- **Edit page preview**: The extension processes GitHub's rendered HTML rather than the raw editor content, so rendering fidelity depends on how GitHub serialises the markdown to HTML. Constructs that GitHub renders identically (e.g. two different Gloss directives producing the same `<code class="language-X">`) cannot be distinguished.

@@ -120,9 +120,3 @@ GitHub Gist ページ
 - `https://gist.githubusercontent.com/*` — 生 Gist ファイルの取得。
 
 バックグラウンドサービスワーカーなし。ストレージなし。外部データ収集なし。
-
-## 既知の制限
-
-- **GitHub UI の変更**: GitHub はページのマークアップを変更することがあります。拡張機能が動作しなくなった場合は、`article[data-testid="rendered-markdown-container"] .markdown-body` または `.markdown-body` がレンダリングコンテナに一致するか確認してください。
-- **SPA ナビゲーション**: 拡張機能は `turbo:load`、`turbo:render`、`pjax:end` イベントを監視しています。GitHub が別のルーターに移行した場合は更新が必要です。
-- **編集ページプレビュー**: 拡張機能は生エディタコンテンツではなく GitHub のレンダリング済み HTML を処理するため、描画精度は GitHub の markdown → HTML シリアライズ方式に依存します。GitHub が同一の HTML を生成する構文（例: 異なる2つの Gloss directive が同じ `<code class="language-X">` になるケース）は区別できません。

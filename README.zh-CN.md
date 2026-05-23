@@ -120,9 +120,3 @@ GitHub Gist 页面
 - `https://gist.githubusercontent.com/*` — 获取原始 Gist 文件内容。
 
 无后台 Service Worker。无存储。不收集任何外部数据。
-
-## 已知限制
-
-- **GitHub UI 变更**：GitHub 有时会调整页面结构。若扩展停止工作，请检查 `article[data-testid="rendered-markdown-container"] .markdown-body` 或 `.markdown-body` 是否仍能匹配渲染容器。
-- **SPA 导航**：扩展监听 `turbo:load`、`turbo:render` 和 `pjax:end` 事件。若 GitHub 迁移到其他路由器，可能需要更新。
-- **编辑页预览**：扩展处理的是 GitHub 渲染后的 HTML，而非原始编辑器内容，因此渲染精度取决于 GitHub 将 markdown 序列化为 HTML 的方式。对于 GitHub 生成相同 HTML 的构造（例如两种不同的 Gloss directive 产生相同的 `<code class="language-X">`），扩展无法加以区分。
