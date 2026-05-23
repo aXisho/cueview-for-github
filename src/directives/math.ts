@@ -20,6 +20,7 @@ export function renderMath(node: GlossNode): HTMLElement {
     el.innerHTML = katex.renderToString(latex, {
       displayMode,
       throwOnError: false,
+      strict: "ignore",
       output: "mathml",
     });
   } catch {

@@ -4,14 +4,15 @@ import { renderInlineChildren } from "../renderer";
 
 function safeColor(color: string | undefined): string {
   if (color && (ALLOWED_COLORS as readonly string[]).includes(color)) return color;
-  return "gray";
+  return "";
 }
 
 export function renderInline(node: GlossNode): HTMLElement {
   switch (node.name) {
     case "badge": {
+      const color = safeColor(node.attrs.color);
       const span = document.createElement("span");
-      span.className = `gloss-badge gloss-color-${safeColor(node.attrs.color)}`;
+      span.className = `gloss-badge${color ? ` gloss-color-${color}` : ""}`;
       span.appendChild(renderInlineChildren(node.children));
       return span;
     }

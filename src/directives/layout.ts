@@ -6,9 +6,13 @@ function isSafeHref(href: string | undefined): href is string {
   return !!href && SAFE_URL_RE.test(href);
 }
 
-function safeColor(color: string | undefined, fallback: string): string {
+function safeColor(color: string | undefined, fallback = ""): string {
   if (color && (ALLOWED_COLORS as readonly string[]).includes(color)) return color;
   return fallback;
+}
+
+function colorClass(color: string): string {
+  return color ? ` gloss-color-${color}` : "";
 }
 
 /**
@@ -17,15 +21,16 @@ function safeColor(color: string | undefined, fallback: string): string {
  * `data-gloss-inherit-color` attribute on the closest container element so that
  * we don't have to thread state through `renderChildren`.
  */
-function inheritColorFor(node: GlossNode, parentColorAttr: string | undefined, fallback: string): string {
-  return safeColor(node.attrs.color, parentColorAttr ?? fallback);
+function inheritColorFor(node: GlossNode, parentColor: string): string {
+  return safeColor(node.attrs.color, parentColor);
 }
 
 export function renderLayout(node: GlossNode): HTMLElement {
   switch (node.name) {
     case "card": {
+      const color = safeColor(node.attrs.color);
       const inner = document.createElement("div");
-      inner.className = `gloss-card gloss-color-${safeColor(node.attrs.color, "gray")}`;
+      inner.className = `gloss-card${colorClass(color)}`;
 
       if (node.attrs.title) {
         const titleDiv = document.createElement("div");
@@ -40,6 +45,8 @@ export function renderLayout(node: GlossNode): HTMLElement {
         const a = document.createElement("a");
         a.href = node.attrs.href;
         a.className = "gloss-card-link";
+        a.style.display = "block";
+        a.style.width = "100%";
         a.style.textDecoration = "none";
         a.style.color = "inherit";
         a.appendChild(inner);
@@ -50,7 +57,7 @@ export function renderLayout(node: GlossNode): HTMLElement {
     }
 
     case "grid": {
-      const parentColor = safeColor(node.attrs.color, "gray");
+      const parentColor = safeColor(node.attrs.color);
       const parentBorder = node.attrs.border === "none" ? "none" : "solid";
 
       const cellChildren = node.children.filter(
@@ -70,10 +77,9 @@ export function renderLayout(node: GlossNode): HTMLElement {
 
       const div = document.createElement("div");
       const borderClass = parentBorder === "none" ? " gloss-border-none" : "";
-      div.className = `gloss-grid gloss-color-${parentColor}${borderClass}`;
+      div.className = `gloss-grid${colorClass(parentColor)}${borderClass}`;
       div.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
       if (hasRows) div.style.gridTemplateRows = `repeat(${rowsAttr}, auto)`;
-      div.setAttribute("data-gloss-parent-color", parentColor);
       for (const child of node.children) {
         if (child.kind === "cue" && child.name === "cell") {
           div.appendChild(renderCell(child, parentColor, parentBorder));
@@ -85,13 +91,13 @@ export function renderLayout(node: GlossNode): HTMLElement {
     }
 
     case "cell": {
-      return renderCell(node, "gray", "solid");
+      return renderCell(node, "", "solid");
     }
 
     case "steps": {
-      const parentColor = safeColor(node.attrs.color, "blue");
+      const parentColor = safeColor(node.attrs.color);
       const ol = document.createElement("ol");
-      ol.className = `gloss-steps gloss-color-${parentColor}`;
+      ol.className = `gloss-steps${colorClass(parentColor)}`;
       for (const child of node.children) {
         if (child.kind === "cue" && child.name === "step") {
           ol.appendChild(renderStep(child, parentColor));
@@ -103,7 +109,7 @@ export function renderLayout(node: GlossNode): HTMLElement {
     }
 
     case "step": {
-      return renderStep(node, "blue");
+      return renderStep(node, "");
     }
 
     default: {
@@ -116,12 +122,12 @@ export function renderLayout(node: GlossNode): HTMLElement {
 
 function renderCell(node: GlossNode, parentColor: string, parentBorder: "solid" | "none"): HTMLElement {
   const div = document.createElement("div");
-  const color = inheritColorFor(node, parentColor, "gray");
+  const color = inheritColorFor(node, parentColor);
   const ownBorder = node.attrs.border;
   const effectiveBorder: "solid" | "none" =
     ownBorder === "none" ? "none" : ownBorder === "solid" ? "solid" : parentBorder;
   const borderClass = effectiveBorder === "none" ? " gloss-border-none" : effectiveBorder === "solid" ? " gloss-border-solid" : "";
-  div.className = `gloss-cell gloss-color-${color}${borderClass}`;
+  div.className = `gloss-cell${colorClass(color)}${borderClass}`;
   if (node.attrs.title) {
     const strong = document.createElement("strong");
     strong.textContent = node.attrs.title;
@@ -133,8 +139,8 @@ function renderCell(node: GlossNode, parentColor: string, parentBorder: "solid" 
 
 function renderStep(node: GlossNode, parentColor: string): HTMLElement {
   const li = document.createElement("li");
-  const color = inheritColorFor(node, parentColor, "blue");
-  li.className = `gloss-step gloss-color-${color}`;
+  const color = inheritColorFor(node, parentColor);
+  li.className = `gloss-step${colorClass(color)}`;
   if (node.attrs.title) {
     const strong = document.createElement("strong");
     strong.textContent = node.attrs.title;

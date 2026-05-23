@@ -2,9 +2,13 @@ import type { GlossNode } from "../parser";
 import { ALLOWED_COLORS } from "../parser";
 import { renderChildren } from "../renderer";
 
-function safeColor(color: string | undefined, fallback: string): string {
+function safeColor(color: string | undefined, fallback = ""): string {
   if (color && (ALLOWED_COLORS as readonly string[]).includes(color)) return color;
   return fallback;
+}
+
+function colorClass(color: string): string {
+  return color ? ` gloss-color-${color}` : "";
 }
 
 export function renderTabs(node: GlossNode): HTMLElement {
@@ -13,8 +17,8 @@ export function renderTabs(node: GlossNode): HTMLElement {
   // CUE005 (tab outside tabs) which the parser does not enforce.
   if (node.name === "tab") {
     const orphan = document.createElement("div");
-    const color = safeColor(node.attrs.color, "blue");
-    orphan.className = `gloss-tab-orphan gloss-color-${color}`;
+    const color = safeColor(node.attrs.color);
+    orphan.className = `gloss-tab-orphan${colorClass(color)}`;
     if (node.attrs.title) {
       const strong = document.createElement("strong");
       strong.textContent = node.attrs.title;
@@ -29,10 +33,10 @@ export function renderTabs(node: GlossNode): HTMLElement {
     (c): c is GlossNode => c.kind === "cue" && c.name === "tab"
   );
 
-  const parentColor = safeColor(node.attrs.color, "blue");
+  const parentColor = safeColor(node.attrs.color);
 
   const wrapper = document.createElement("div");
-  wrapper.className = `gloss-tabs gloss-color-${parentColor}`;
+  wrapper.className = `gloss-tabs${colorClass(parentColor)}`;
 
   if (tabs.length === 0) {
     // No tab children — render contents as-is
@@ -63,7 +67,7 @@ export function renderTabs(node: GlossNode): HTMLElement {
   tabs.forEach((tab, idx) => {
     const btn = document.createElement("button");
     const tabColor = safeColor(tab.attrs.color, parentColor);
-    btn.className = `gloss-tabs-btn gloss-color-${tabColor}` + (idx === 0 ? " active" : "");
+    btn.className = `gloss-tabs-btn${colorClass(tabColor)}` + (idx === 0 ? " active" : "");
     btn.setAttribute("role", "tab");
     btn.setAttribute("aria-selected", idx === 0 ? "true" : "false");
     btn.textContent = tab.attrs.title ?? `Tab ${idx + 1}`;

@@ -20,6 +20,10 @@ export function renderToc(node: GlossNode): HTMLElement {
   return wrapper;
 }
 
+function slugifyToc(text: string): string {
+  return text.toLowerCase().trim().replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/[\s_]+/g, "-");
+}
+
 function populateToc(wrapper: HTMLElement, maxDepth: number): void {
   // Scope to the markdown container that contains this TOC element
   const scope: ParentNode = wrapper.closest(".markdown-body") ?? document;
@@ -32,6 +36,12 @@ function populateToc(wrapper: HTMLElement, maxDepth: number): void {
 
   const entries: TocEntry[] = [];
   for (const el of headings) {
+    // GitHub's edit-page preview may not add id attributes to headings.
+    // Generate one on the fly so the heading is included in the TOC.
+    if (!el.id) {
+      const slug = slugifyToc(el.textContent ?? "");
+      if (slug) el.id = slug;
+    }
     if (!el.id) continue;
     const level = parseInt(el.tagName.slice(1), 10);
     if (level <= maxDepth) {

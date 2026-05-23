@@ -113,7 +113,7 @@ marked.use({ hooks: { postprocess: (html) => DOMPurify.sanitize(html) } });
 // ── Heading slug ──────────────────────────────────────────────────────────────
 
 function slugify(text: string): string {
-  return text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_]+/g, "-");
+  return text.toLowerCase().trim().replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/[\s_]+/g, "-");
 }
 
 // ── Inline node detection ─────────────────────────────────────────────────────
@@ -155,13 +155,13 @@ export function renderGlossNode(node: GlossNode): HTMLElement | DocumentFragment
 const ALLOWED_HEADING_COLORS = new Set(["gray", "blue", "green", "yellow", "red", "purple"]);
 
 function renderHeading(node: GlossNode): HTMLElement {
-  const rawColor = node.attrs.color ?? "gray";
-  const color = ALLOWED_HEADING_COLORS.has(rawColor) ? rawColor : "gray";
+  const rawColor = node.attrs.color;
+  const color = rawColor && ALLOWED_HEADING_COLORS.has(rawColor) ? rawColor : "";
   const rawLevel = parseInt(node.attrs.level ?? "2", 10);
   const level = Number.isFinite(rawLevel) ? Math.min(Math.max(rawLevel, 1), 6) : 2;
   const tagName = `h${level}` as const;
   const el = document.createElement(tagName);
-  el.className = `gloss-heading gloss-heading-color-${color}`;
+  el.className = `gloss-heading${color ? ` gloss-heading-color-${color}` : ""}`;
   const rawIndent = parseInt(node.attrs.indent ?? "0", 10);
   const indent = Number.isFinite(rawIndent) && rawIndent > 0 ? rawIndent : 0;
   if (indent > 0) el.dataset.glossIndent = String(indent);

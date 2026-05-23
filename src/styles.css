@@ -141,6 +141,7 @@ a[data-footnote-ref] { scroll-margin-top: 120px; }
 a[data-footnote-backref] { text-decoration: none; margin-left: 0.25rem; }
 
 /* Card */
+.gloss-card-link { display: block; }
 .gloss-card { border: 1px solid var(--color-gh-border, #d0d7de); border-radius: 6px; padding: 1rem; margin: 0.5rem 0; text-decoration: none; color: inherit; display: block; transition: border-color 0.15s, box-shadow 0.15s; }
 .gloss-card:hover { border-color: var(--gloss-blue, #0969da); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .gloss-card-title { font-weight: 600; margin-bottom: 0.5rem; }
@@ -199,6 +200,8 @@ a[data-footnote-backref] { text-decoration: none; margin-left: 0.25rem; }
 .gloss-cell.gloss-color-red    { background: color-mix(in srgb, var(--gloss-red, #cf222e) 8%, var(--color-gh-bg, #fff)); }
 .gloss-cell.gloss-color-purple { background: color-mix(in srgb, var(--gloss-purple, #8250df) 8%, var(--color-gh-bg, #fff)); }
 .gloss-cell.gloss-color-gray   { background: color-mix(in srgb, var(--gloss-gray, #8c959f) 8%, var(--color-gh-bg, #fff)); }
+/* border=solid cells use page background regardless of color class */
+.gloss-cell.gloss-border-solid { background: var(--color-gh-bg, #ffffff); }
 
 /* Steps — overrides GitHub's .markdown-body li+li/.markdown-body li>p/pre margins
    (higher specificity than ours) with !important to keep the vertical rail
