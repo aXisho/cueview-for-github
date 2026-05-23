@@ -1,5 +1,7 @@
 # GlossView for GitHub
 
+[English](./README.md) | [日本語](./README.ja.md) | [简体中文](./README.zh-CN.md)
+
 A Chrome extension that renders [Gloss Markdown](https://github.com/aXisho/glossmd) directives on GitHub pages. When you browse a `.gloss.md` file on GitHub, the extension intercepts the page and transforms directive markup into rich UI — callouts, tabs, badges, grids, steps, and more.
 
 ## What it does
