@@ -21,6 +21,7 @@ const staticFiles = [
   "icons/icon16.svg",
   "icons/icon48.svg",
   "icons/icon128.svg",
+  "src/editor-bridge.js",
   "src/styles.css",
 ];
 const packageFiles = [...staticFiles, "src/content.js"];

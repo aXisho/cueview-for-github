@@ -2,8 +2,8 @@
  * content.ts — GlossView for GitHub content script
  */
 
-import { parseGlossMd, parseAttrs, type GlossNode } from "./parser";
-import { renderChildren, renderGlossNode } from "./renderer";
+import { parseGlossMd } from "./parser";
+import { renderChildren } from "./renderer";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -23,10 +23,10 @@ function isEditPage(): boolean {
 function getRawUrl(): string | null {
   const p = window.location.pathname;
 
-  // Regular repo file: /owner/repo/blob/branch/path
-  const blobM = p.match(/^\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/);
-  if (blobM) {
-    const [, owner, repo, branch, path] = blobM;
+  // Repo file on blob view or edit page: /owner/repo/blob|edit/branch/path
+  const fileM = p.match(/^\/([^/]+)\/([^/]+)\/(?:blob|edit)\/([^/]+)\/(.+)$/);
+  if (fileM) {
+    const [, owner, repo, branch, path] = fileM;
     return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
   }
 
@@ -54,13 +54,30 @@ function findContainer(): Element | null {
 }
 
 function findEditContainer(): Element | null {
+  const selectors = [
+    '[data-testid="preview-tab-panel"] .markdown-body',
+    '[data-testid="preview"] .markdown-body',
+    ".js-preview-panel .markdown-body",
+    ".js-preview-body .markdown-body",
+    ".preview-content .markdown-body",
+    ".preview-content.markdown-body",
+    ".js-preview-body.markdown-body",
+    '[role="tabpanel"] .markdown-body',
+  ];
+
+  const explicitCandidates = selectors.flatMap((selector) =>
+    Array.from(document.querySelectorAll<Element>(selector))
+  );
+  const renderedFallbacks = Array.from(document.querySelectorAll<Element>("div.markdown-body"))
+    .filter((el) => (
+      el.classList.contains("container-lg") ||
+      !!el.querySelector(".markdown-heading, .snippet-clipboard-content, .markdown-alert, [data-sourcepos]")
+    ));
+  const candidates = Array.from(new Set([...explicitCandidates, ...renderedFallbacks]));
+
   return (
-    document.querySelector(".preview-content .markdown-body") ??
-    document.querySelector('[data-testid="preview-tab-panel"] .markdown-body') ??
-    document.querySelector(".js-preview-body .markdown-body") ??
-    document.querySelector('[data-testid="preview"] .markdown-body') ??
-    document.querySelector('[role="tabpanel"] .markdown-body') ??
-    document.querySelector(".markdown-body") ??
+    candidates.find((el) => el.isConnected && el.getClientRects().length > 0) ??
+    candidates.find((el) => el.isConnected) ??
     null
   );
 }
@@ -112,161 +129,17 @@ function installHashLinkHandlers(container: Element): void {
   });
 }
 
-// ── Edit page: enhance GitHub's rendered preview ──────────────────────────────
-//
-// On edit pages, GitHub re-renders the preview from the current editor content
-// (including unsaved edits) each time the user clicks the Preview tab.
-// Rather than trying to extract the raw markdown from the editor, we process
-// GitHub's already-rendered HTML and replace Gloss fenced-code-block elements
-// with our proper directive rendering.
-
-const GLOSS_FENCED_NAMES = new Set([
-  "details", "card", "math",
-  "tabs", "steps", "grid",
-]);
-
-const INLINE_DIRECTIVE_RE = /^\{(badge|small|big|kbd)([^}]*)\}/;
-const TOC_BLOCKQUOTE_RE = /^\[!toc([^\]]*)\]$/i;
-const HEADING_DIRECTIVE_RE = /\{heading([^}]*)\}/;
-
-function enhanceGitHubPreview(container: Element): void {
-  // Pass 1: fenced block directives (tabs, details, card, math, steps, grid)
-  const replaced = new Set<Element>();
-  for (const codeEl of Array.from(container.querySelectorAll("code"))) {
-    let name = "";
-    let attrStr = "";
-
-    const langClass = Array.from(codeEl.classList).find(c => c.startsWith("language-"));
-    if (langClass) {
-      const info = langClass.replace("language-", "");
-      const sp = info.indexOf(" ");
-      name = (sp >= 0 ? info.slice(0, sp) : info).toLowerCase();
-      attrStr = sp >= 0 ? info.slice(sp + 1) : "";
-    } else {
-      const pre = codeEl.closest("pre");
-      const langAttr = pre?.getAttribute("lang") ?? "";
-      const sp = langAttr.indexOf(" ");
-      name = (sp >= 0 ? langAttr.slice(0, sp) : langAttr).toLowerCase();
-      attrStr = sp >= 0 ? langAttr.slice(sp + 1) : "";
-    }
-
-    if (!name || !GLOSS_FENCED_NAMES.has(name)) continue;
-
-    const pre = codeEl.closest("pre");
-    const replaceTarget = (pre?.closest(".highlight") ?? pre ?? codeEl) as Element;
-    if (replaced.has(replaceTarget)) continue;
-    replaced.add(replaceTarget);
-
-    const node: GlossNode = {
-      kind: "cue",
-      name,
-      attrs: parseAttrs(attrStr),
-      children: parseGlossMd(codeEl.textContent ?? ""),
-      inline: false,
-      selfClosing: false,
-    };
-
-    const wrapper = document.createElement("div");
-    wrapper.appendChild(renderGlossNode(node));
-    replaceTarget.replaceWith(wrapper);
-
-    // Remove GitHub's native clipboard button — it copies the raw directive
-    // source which is meaningless after we've replaced the block.
-    wrapper.closest(".snippet-clipboard-content")
-      ?.querySelector(".zeroclipboard-container")
-      ?.remove();
-  }
-
-  // Pass 2: heading directives — GitHub renders `# \`text\`{heading color=blue}` as
-  //   <h1><code>text</code>{heading color=blue}</h1>
-  for (const hEl of Array.from(container.querySelectorAll("h1,h2,h3,h4,h5,h6"))) {
-    let attrStr = "";
-    let directiveTextNode: Text | null = null;
-    for (const child of Array.from(hEl.childNodes)) {
-      if (child.nodeType !== Node.TEXT_NODE) continue;
-      const m = (child as Text).textContent?.match(HEADING_DIRECTIVE_RE);
-      if (m) { attrStr = m[1].trim(); directiveTextNode = child as Text; break; }
-    }
-    if (!directiveTextNode) continue;
-
-    const level = parseInt(hEl.tagName.slice(1), 10);
-    const attrs = parseAttrs(attrStr);
-    if (!attrs.level) attrs.level = String(level);
-
-    const codeChild = hEl.querySelector("code");
-    const text = codeChild?.textContent
-      ?? (hEl.textContent ?? "").replace(HEADING_DIRECTIVE_RE, "").trim();
-
-    const node: GlossNode = {
-      kind: "cue",
-      name: "heading",
-      attrs,
-      children: [{ kind: "text", content: text }],
-      inline: false,
-      selfClosing: false,
-    };
-    hEl.replaceWith(renderGlossNode(node));
-  }
-
-  // Pass 3: inline directives — GitHub renders `` `text`{badge color=green} `` as
-  //   <code>text</code>{badge color=green} (text node following <code>)
-  for (const codeEl of Array.from(container.querySelectorAll("code"))) {
-    if (codeEl.closest("pre")) continue;
-    const nextSib = codeEl.nextSibling;
-    if (!nextSib || nextSib.nodeType !== Node.TEXT_NODE) continue;
-
-    const textContent = nextSib.textContent ?? "";
-    const m = INLINE_DIRECTIVE_RE.exec(textContent);
-    if (!m) continue;
-
-    const rest = textContent.slice(m[0].length);
-    const node: GlossNode = {
-      kind: "cue",
-      name: m[1],
-      attrs: parseAttrs(m[2].trim()),
-      children: [{ kind: "text", content: codeEl.textContent ?? "" }],
-      inline: true,
-      selfClosing: false,
-    };
-
-    if (rest) {
-      (nextSib as Text).textContent = rest;
-    } else {
-      nextSib.parentNode?.removeChild(nextSib);
-    }
-    codeEl.replaceWith(renderGlossNode(node));
-  }
-
-  // Pass 4: TOC blockquotes — GitHub renders `> [!toc title="目次" depth=3]` as
-  //   <blockquote><p>[!toc title="目次" depth=3]</p></blockquote>
-  for (const bq of Array.from(container.querySelectorAll("blockquote"))) {
-    if (bq.children.length !== 1) continue;
-    const p = bq.querySelector("p");
-    if (!p) continue;
-
-    const text = (p.textContent ?? "").trim();
-    const m = TOC_BLOCKQUOTE_RE.exec(text);
-    if (!m) continue;
-
-    const node: GlossNode = {
-      kind: "cue",
-      name: "toc",
-      attrs: parseAttrs(m[1].trim()),
-      children: [],
-      inline: false,
-      selfClosing: true,
-    };
-    bq.replaceWith(renderGlossNode(node));
-  }
-}
-
 // ── State ─────────────────────────────────────────────────────────────────────
 
 const cachedRaw = new Map<string, string>();
 const watchedContainers = new Map<Element, MutationObserver>();
+const renderedSources = new WeakMap<Element, string>();
 let bodyObserver: MutationObserver | null = null;
 
 const SENTINEL_ATTR = "data-glossview-sentinel";
+const EDITOR_CONTENT_ATTR = "data-glossview-content";
+const EDITOR_REQUEST_EVENT = "__glossview_request_editor_content";
+const EDITOR_RESPONSE_EVENT = "__glossview_editor_content";
 
 // ── Core ──────────────────────────────────────────────────────────────────────
 
@@ -283,6 +156,7 @@ function applyAndWatch(container: Element, raw: string): void {
 
   const apply = (): void => {
     applying = true;
+    renderedSources.set(container, raw);
     const frag = buildFragment(raw);
     const sentinel = document.createElement("meta");
     sentinel.setAttribute(SENTINEL_ATTR, "1");
@@ -363,6 +237,53 @@ async function mainGist(): Promise<void> {
   }
 }
 
+async function getRawForCurrentPage(): Promise<string | null> {
+  const rawUrl = getRawUrl();
+  if (!rawUrl) return null;
+
+  const cacheKey = window.location.pathname;
+  let raw = cachedRaw.get(cacheKey);
+  if (raw !== undefined) return raw;
+
+  try {
+    const res = await fetch(rawUrl);
+    if (!res.ok) return null;
+    raw = await res.text();
+    cachedRaw.set(cacheKey, raw);
+    return raw;
+  } catch {
+    console.warn("[GlossView] Failed to fetch:", rawUrl);
+    return null;
+  }
+}
+
+function getCapturedEditorContent(): string | null {
+  const raw = document.documentElement.getAttribute(EDITOR_CONTENT_ATTR);
+  return raw && raw.trim() ? raw : null;
+}
+
+function requestEditorContent(timeoutMs = 600): Promise<string | null> {
+  return new Promise((resolve) => {
+    let done = false;
+
+    const finish = (value: string | null): void => {
+      if (done) return;
+      done = true;
+      document.removeEventListener(EDITOR_RESPONSE_EVENT, onResponse as EventListener);
+      resolve(value);
+    };
+
+    const onResponse = (event: Event): void => {
+      const detail = (event as CustomEvent<string | null>).detail;
+      if (detail && detail.trim()) finish(detail);
+    };
+
+    document.addEventListener(EDITOR_RESPONSE_EVENT, onResponse as EventListener, { once: true });
+    document.dispatchEvent(new CustomEvent(EDITOR_REQUEST_EVENT));
+    window.setTimeout(() => finish(getCapturedEditorContent()), timeoutMs);
+  });
+}
+
 async function main(): Promise<void> {
   if (isGistPage()) {
     return mainGist();
@@ -373,45 +294,22 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Edit page: enhance GitHub's own rendered preview in-place.
-  // GitHub re-renders the preview from current editor content on each tab switch,
-  // so we don't need the raw markdown — just process the HTML GitHub already produced.
-  if (isEditPage()) {
-    const container = findEditContainer();
-    if (!container) return;
-    if (isOurRendering(container)) return;
+  // Edit page: target the preview tab panel; blob/wiki: the rendered article.
+  const container = isEditPage() ? findEditContainer() : findContainer();
+  if (!container) return;
 
-    enhanceGitHubPreview(container);
+  const raw = isEditPage()
+    ? (await requestEditorContent()) ?? (await getRawForCurrentPage())
+    : await getRawForCurrentPage();
+  if (!raw) return;
 
-    const sentinel = document.createElement("meta");
-    sentinel.setAttribute(SENTINEL_ATTR, "1");
-    sentinel.style.display = "none";
-    container.prepend(sentinel);
-    installHashLinkHandlers(container);
+  if (
+    watchedContainers.has(container) &&
+    isOurRendering(container) &&
+    renderedSources.get(container) === raw
+  ) {
     return;
   }
-
-  const rawUrl = getRawUrl();
-  if (!rawUrl) return;
-
-  const cacheKey = window.location.pathname;
-  let raw = cachedRaw.get(cacheKey);
-
-  if (raw === undefined) {
-    try {
-      const res = await fetch(rawUrl);
-      if (!res.ok) return;
-      raw = await res.text();
-      cachedRaw.set(cacheKey, raw);
-    } catch {
-      console.warn("[GlossView] Failed to fetch:", rawUrl);
-      return;
-    }
-  }
-
-  const container = findContainer();
-  if (!container) return;
-  if (watchedContainers.has(container) && isOurRendering(container)) return;
   applyAndWatch(container, raw);
 }
 
@@ -426,15 +324,27 @@ function scheduleMain(delay = 300): void {
 installBodyObserver();
 main().catch((err) => console.error("[GlossView]", err));
 
-document.addEventListener("turbo:load", () => { cachedRaw.clear(); scheduleMain(300); });
+document.addEventListener("turbo:load", () => {
+  cachedRaw.clear();
+  scheduleMain(300);
+});
 document.addEventListener("turbo:render", () => { scheduleMain(400); });
-document.addEventListener("pjax:end", () => { cachedRaw.clear(); scheduleMain(300); });
+document.addEventListener("pjax:end", () => {
+  cachedRaw.clear();
+  scheduleMain(300);
+});
 
 // On edit pages, tab switches may use CSS show/hide without DOM mutations.
-// Trigger main() on any tab-like click so the preview is picked up.
+// Schedule main() on any tab-like click so the preview panel is picked up.
 document.addEventListener("click", (e) => {
   if (!isGlossMdPath() || !isEditPage()) return;
-  const btn = (e.target as Element).closest('[role="tab"], .tabnav-tab, [data-tab]');
-  if (!btn) return;
-  scheduleMain(300);
+  const target = e.target as Element;
+  const btn = target.closest('[role="tab"], .tabnav-tab, [data-tab], button, a');
+  const label = (btn?.textContent ?? btn?.getAttribute("aria-label") ?? "").trim().toLowerCase();
+  if (!btn || (!label.includes("preview") && !btn.matches('[role="tab"], .tabnav-tab, [data-tab]'))) {
+    return;
+  }
+  scheduleMain(150);
+  scheduleMain(500);
+  scheduleMain(1000);
 });

@@ -10,6 +10,12 @@
   },
   "content_scripts": [
     {
+      "matches": ["https://github.com/*"],
+      "js": ["src/editor-bridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
       "matches": ["https://github.com/*", "https://gist.github.com/*"],
       "js": ["src/content.js"],
       "css": ["src/styles.css"],
