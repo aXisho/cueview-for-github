@@ -371,25 +371,6 @@ describe("parseGlossMd — math directive", () => {
   });
 });
 
-describe("parseGlossMd — embed directive", () => {
-  it("parses embed fenced block with URL body", () => {
-    const nodes = parseGlossMd([
-      "```embed",
-      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      "```",
-    ].join("\n"));
-    expect(nodes).toHaveLength(1);
-    expect(nodes[0]).toMatchObject({
-      kind: "cue",
-      name: "embed",
-      inline: false,
-      selfClosing: false,
-    });
-    const embed = nodes[0] as { children: Array<{ kind: string; content: string }> };
-    expect(embed.children[0].kind).toBe("text");
-    expect(embed.children[0].content).toContain("youtube.com");
-  });
-});
 
 describe("parseGlossMd — pass-through behaviour", () => {
   it("does not parse alerts inside fenced code blocks (verbatim passthrough)", () => {

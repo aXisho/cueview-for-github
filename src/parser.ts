@@ -40,7 +40,7 @@ const ALERT_TYPE_TO_DIRECTIVE: Record<string, string> = {
   CAUTION: "danger",
 };
 
-const BLOCK_DIRECTIVES = ["details", "card", "embed", "math"];
+const BLOCK_DIRECTIVES = ["details", "card", "math"];
 
 // Heading promotion: a Markdown ATX heading whose only content is an inline
 // `heading` directive promotes the directive's colour onto the heading itself.
@@ -468,4 +468,3 @@ function parseLines(lines: string[]): GlossChild[] {
   return mergeTextRuns(out);
 }
 
-export const parseGlossMdToNodes = parseGlossMd;

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GlossView for GitHub",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "Renders Gloss Markdown directives (.gloss.md) on GitHub pages.",
   "icons": {
     "16": "icons/icon16.svg",

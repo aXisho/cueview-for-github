@@ -1,5 +1,6 @@
 import { marked, Renderer } from "marked";
 import markedFootnote from "marked-footnote";
+import DOMPurify from "dompurify";
 import hljs from "highlight.js/lib/core";
 import javascript from "highlight.js/lib/languages/javascript";
 import typescript from "highlight.js/lib/languages/typescript";
@@ -29,7 +30,6 @@ import { renderDetails } from "./directives/details";
 import { renderInline } from "./directives/inline";
 import { renderLayout } from "./directives/layout";
 import { renderToc } from "./directives/toc";
-import { renderEmbed } from "./directives/embed";
 import { renderMath } from "./directives/math";
 
 // ── highlight.js ──────────────────────────────────────────────────────────────
@@ -60,13 +60,34 @@ function hljsHighlight(code: string, lang: string): string {
   if (lang && hljs.getLanguage(lang)) {
     try { return hljs.highlight(code, { language: lang }).value; } catch { /* fall through */ }
   }
-  return hljs.highlight(code, { language: "plaintext" }).value;
+  return escapeHtml(code);
 }
 
 // ── marked: custom renderer for syntax-highlighted code blocks ───────────────
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function addCopyButton(pre: HTMLElement): void {
+  const code = pre.querySelector("code");
+  if (!code) return;
+  const btn = document.createElement("button");
+  btn.className = "gloss-copy-btn";
+  btn.setAttribute("aria-label", "Copy code");
+  btn.textContent = "Copy";
+  btn.addEventListener("click", () => {
+    navigator.clipboard.writeText(code.textContent ?? "").then(() => {
+      btn.textContent = "✓";
+      setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+    }).catch(() => {});
+  });
+  // Wrap pre in a container so the button sits outside pre's overflow context
+  const wrapper = document.createElement("div");
+  wrapper.className = "gloss-pre-wrapper";
+  pre.replaceWith(wrapper);
+  wrapper.appendChild(pre);
+  wrapper.appendChild(btn);
 }
 
 const renderer = new Renderer();
@@ -87,6 +108,7 @@ renderer.code = function ({ text, lang }: { text: string; lang?: string }): stri
 };
 marked.use({ renderer });
 marked.use(markedFootnote());
+marked.use({ hooks: { postprocess: (html) => DOMPurify.sanitize(html) } });
 
 // ── Heading slug ──────────────────────────────────────────────────────────────
 
@@ -115,8 +137,6 @@ export function renderGlossNode(node: GlossNode): HTMLElement | DocumentFragment
       return renderInline(node);
     case "heading":
       return renderHeading(node);
-    case "embed":
-      return renderEmbed(node);
     case "math":
       return renderMath(node);
     case "grid": case "cell": case "card": case "steps": case "step":
@@ -144,7 +164,7 @@ function renderHeading(node: GlossNode): HTMLElement {
   el.className = `gloss-heading gloss-heading-color-${color}`;
   const rawIndent = parseInt(node.attrs.indent ?? "0", 10);
   const indent = Number.isFinite(rawIndent) && rawIndent > 0 ? rawIndent : 0;
-  if (indent > 0) el.style.marginLeft = `${indent}rem`;
+  if (indent > 0) el.dataset.glossIndent = String(indent);
   const text = node.children
     .filter((c): c is { kind: "text"; content: string } => c.kind === "text")
     .map((c) => c.content)
@@ -338,8 +358,11 @@ export function renderChildren(children: GlossChild[]): DocumentFragment {
       }
       if (p.hasChildNodes()) {
         const idx = slots.size;
-        slots.set(idx, p);
-        md += `<!--${PLACEHOLDER}-${idx}-->\n\n`;
+        // Wrap p in a container so replaceWith(...childNodes) preserves the <p>
+        const pContainer = document.createElement("div");
+        pContainer.appendChild(p);
+        slots.set(idx, pContainer);
+        md += `<div data-${PLACEHOLDER}="${idx}"></div>\n\n`;
       }
       continue;
     }
@@ -349,7 +372,7 @@ export function renderChildren(children: GlossChild[]): DocumentFragment {
       const el = document.createElement("div");
       el.appendChild(renderGlossNode(item.node));
       slots.set(idx, el);
-      md += `<!--${PLACEHOLDER}-${idx}-->\n\n`;
+      md += `<div data-${PLACEHOLDER}="${idx}"></div>\n\n`;
       i++;
       continue;
     }
@@ -362,24 +385,37 @@ export function renderChildren(children: GlossChild[]): DocumentFragment {
   const wrapper = document.createElement("div");
   wrapper.innerHTML = html;
 
+  for (const pre of Array.from(wrapper.querySelectorAll<HTMLElement>("pre"))) {
+    addCopyButton(pre);
+  }
+
   for (const h of wrapper.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
     if (!h.id) h.id = slugify(h.textContent ?? "");
   }
 
-  // Replace placeholder comments with pre-built DOM nodes in document order.
-  const placeholderRe = new RegExp(`^${PLACEHOLDER}-(\\d+)$`);
-  const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_COMMENT);
-  const replacements: Array<{ comment: Comment; el: Element }> = [];
-  let n: Node | null;
-  while ((n = walker.nextNode())) {
-    const m = placeholderRe.exec((n as Comment).data.trim());
-    if (m) {
-      const el = slots.get(parseInt(m[1], 10));
-      if (el) replacements.push({ comment: n as Comment, el });
-    }
+  // Replace placeholder divs with pre-built DOM nodes in document order.
+  for (const ph of Array.from(wrapper.querySelectorAll<HTMLElement>(`[data-${PLACEHOLDER}]`))) {
+    const el = slots.get(parseInt(ph.getAttribute(`data-${PLACEHOLDER}`)!, 10));
+    if (el) ph.replaceWith(...Array.from(el.childNodes));
   }
-  for (const { comment, el } of replacements) {
-    comment.replaceWith(...Array.from(el.childNodes));
+
+  for (const heading of Array.from(wrapper.querySelectorAll<HTMLElement>("[data-gloss-indent]"))) {
+    const indent = parseFloat(heading.dataset.glossIndent!);
+    delete heading.dataset.glossIndent;
+    if (!(indent > 0)) continue;
+    const wrapDiv = document.createElement("div");
+    wrapDiv.style.marginLeft = `${indent}rem`;
+    const toMove: Node[] = [];
+    let sib: ChildNode | null = heading.nextSibling;
+    while (sib) {
+      const next = sib.nextSibling;
+      if (sib instanceof HTMLElement && (/^H[1-6]$/.test(sib.tagName) || sib.tagName === "HR")) break;
+      toMove.push(sib);
+      sib = next;
+    }
+    heading.replaceWith(wrapDiv);
+    wrapDiv.appendChild(heading);
+    for (const n of toMove) wrapDiv.appendChild(n);
   }
 
   while (wrapper.firstChild) frag.appendChild(wrapper.firstChild);

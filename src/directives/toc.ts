@@ -21,14 +21,8 @@ export function renderToc(node: GlossNode): HTMLElement {
 }
 
 function populateToc(wrapper: HTMLElement, maxDepth: number): void {
-  // Scope to the markdown container only — not GitHub UI headings
-  const scope: ParentNode =
-    document.querySelector(
-      'article[data-testid="rendered-markdown-container"] .markdown-body'
-    ) ??
-    document.querySelector("article.markdown-body") ??
-    document.querySelector('[data-glossview-rendered="true"]') ??
-    document;
+  // Scope to the markdown container that contains this TOC element
+  const scope: ParentNode = wrapper.closest(".markdown-body") ?? document;
 
   const headings = Array.from(
     scope.querySelectorAll("h1,h2,h3,h4,h5,h6")

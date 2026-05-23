@@ -9,7 +9,7 @@ function safeColor(color: string | undefined, fallback: string): string {
 
 export function renderDetails(node: GlossNode): HTMLElement {
   const details = document.createElement("details");
-  details.className = `gloss-details cue-color-${safeColor(node.attrs.color, "gray")}`;
+  details.className = `gloss-details gloss-color-${safeColor(node.attrs.color, "gray")}`;
 
   if (node.attrs.open === "true") {
     details.open = true;
