@@ -1,5 +1,7 @@
 /* GlossView for GitHub — directive styles */
-/* Synced with cuemo/internal/frontend/src/gloss/styles.css */
+/* Derived from k1LoW/mo (MIT License, Copyright © 2026 Ken'ichiro Oyama <k1lowxb@gmail.com>)
+   via glmo (https://github.com/aXisho/glmo) and cuemo.
+   https://github.com/k1LoW/mo */
 
 /* ── Syntax highlighting (highlight.js github theme) ── */
 pre code.hljs { display: block; overflow-x: auto; padding: 1em; }

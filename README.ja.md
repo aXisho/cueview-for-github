@@ -120,3 +120,13 @@ GitHub Gist ページ
 - `https://gist.githubusercontent.com/*` — 生 Gist ファイルの取得。
 
 バックグラウンドサービスワーカーなし。ストレージなし。外部データ収集なし。
+
+## ライセンス
+
+[MIT License](./LICENSE)
+
+### サードパーティ帰属
+
+本拡張機能の CSS スタイルは [k1LoW/mo](https://github.com/k1LoW/mo)（[glmo](https://github.com/aXisho/glmo) 経由）から派生しており、こちらも MIT ライセンスです。
+
+Copyright © 2026 Ken'ichiro Oyama &lt;k1lowxb@gmail.com&gt;

@@ -120,3 +120,13 @@ The parser (`src/parser.ts`) recognizes the three Gloss Markdown directive forms
 - `https://gist.githubusercontent.com/*` — fetch raw Gist file content.
 
 No background service worker. No storage. No external data collection.
+
+## License
+
+[MIT License](./LICENSE)
+
+### Third-party attributions
+
+The CSS styles in this extension are derived from [k1LoW/mo](https://github.com/k1LoW/mo) (via [glmo](https://github.com/aXisho/glmo)), which is also MIT licensed.
+
+Copyright © 2026 Ken'ichiro Oyama &lt;k1lowxb@gmail.com&gt;

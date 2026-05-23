@@ -120,3 +120,13 @@ GitHub Gist 页面
 - `https://gist.githubusercontent.com/*` — 获取原始 Gist 文件内容。
 
 无后台 Service Worker。无存储。不收集任何外部数据。
+
+## 许可证
+
+[MIT License](./LICENSE)
+
+### 第三方致谢
+
+本扩展的 CSS 样式派生自 [k1LoW/mo](https://github.com/k1LoW/mo)（经由 [glmo](https://github.com/aXisho/glmo)），同样采用 MIT 许可证。
+
+Copyright © 2026 Ken'ichiro Oyama &lt;k1lowxb@gmail.com&gt;
