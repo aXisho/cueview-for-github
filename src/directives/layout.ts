@@ -1,18 +1,10 @@
 import type { GlossNode } from "../parser";
-import { ALLOWED_COLORS, SAFE_URL_RE } from "../parser";
+import { SAFE_URL_RE } from "../gloss-spec";
 import { renderChildren } from "../renderer";
+import { colorClass, positiveInteger, safeColor } from "../render-utils";
 
 function isSafeHref(href: string | undefined): href is string {
   return !!href && SAFE_URL_RE.test(href);
-}
-
-function safeColor(color: string | undefined, fallback = ""): string {
-  if (color && (ALLOWED_COLORS as readonly string[]).includes(color)) return color;
-  return fallback;
-}
-
-function colorClass(color: string): string {
-  return color ? ` gloss-color-${color}` : "";
 }
 
 /**
@@ -61,30 +53,24 @@ export function renderLayout(node: GlossNode): HTMLElement {
       const parentBorder = node.attrs.border === "none" ? "none" : "solid";
 
       const cellChildren = node.children.filter(
-        (c): c is GlossNode => c.kind === "cue" && c.name === "cell",
+        (c): c is GlossNode => c.kind === "gloss" && c.name === "cell",
       );
       const cellCount = cellChildren.length;
 
-      // cols / rows resolution — see spec for the precedence table.
-      const colsAttr = node.attrs.cols ? parseInt(node.attrs.cols, 10) : NaN;
-      const rowsAttr = node.attrs.rows ? parseInt(node.attrs.rows, 10) : NaN;
-      const hasCols = Number.isFinite(colsAttr) && colsAttr > 0;
-      const hasRows = Number.isFinite(rowsAttr) && rowsAttr > 0;
-      let cols: number;
-      if (hasCols) cols = colsAttr;
-      else if (hasRows && cellCount > 0) cols = Math.max(1, Math.ceil(cellCount / rowsAttr));
-      else cols = Math.max(1, cellCount || 2);
+      // §3: `cols` defaults to the number of `cell` children (min 1). An invalid
+      // value is treated as that default per §6.1.
+      const colsAttr = positiveInteger(node.attrs.cols);
+      const cols = colsAttr ?? Math.max(1, cellCount);
 
       const div = document.createElement("div");
       const borderClass = parentBorder === "none" ? " gloss-border-none" : "";
       div.className = `gloss-grid${colorClass(parentColor)}${borderClass}`;
       div.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-      if (hasRows) div.style.gridTemplateRows = `repeat(${rowsAttr}, auto)`;
       for (const child of node.children) {
-        if (child.kind === "cue" && child.name === "cell") {
+        if (child.kind === "gloss" && child.name === "cell") {
           div.appendChild(renderCell(child, parentColor, parentBorder));
-        } else if (child.kind === "cue") {
-          div.appendChild(renderLayout(child));
+        } else {
+          div.appendChild(renderChildren([child]));
         }
       }
       return div;
@@ -98,18 +84,20 @@ export function renderLayout(node: GlossNode): HTMLElement {
       const parentColor = safeColor(node.attrs.color);
       const ol = document.createElement("ol");
       ol.className = `gloss-steps${colorClass(parentColor)}`;
+      let stepIndex = 0;
       for (const child of node.children) {
-        if (child.kind === "cue" && child.name === "step") {
-          ol.appendChild(renderStep(child, parentColor));
-        } else if (child.kind === "cue") {
-          ol.appendChild(renderLayout(child));
+        if (child.kind === "gloss" && child.name === "step") {
+          stepIndex++;
+          ol.appendChild(renderStep(child, parentColor, stepIndex));
+        } else {
+          ol.appendChild(renderChildren([child]));
         }
       }
       return ol;
     }
 
     case "step": {
-      return renderStep(node, "");
+      return renderStep(node, "", 1);
     }
 
     default: {
@@ -123,10 +111,12 @@ export function renderLayout(node: GlossNode): HTMLElement {
 function renderCell(node: GlossNode, parentColor: string, parentBorder: "solid" | "none"): HTMLElement {
   const div = document.createElement("div");
   const color = inheritColorFor(node, parentColor);
+  // §3: `border` is `solid`/`none`; any other value (or omission) inherits the
+  // parent grid's border per §6.1.
   const ownBorder = node.attrs.border;
   const effectiveBorder: "solid" | "none" =
     ownBorder === "none" ? "none" : ownBorder === "solid" ? "solid" : parentBorder;
-  const borderClass = effectiveBorder === "none" ? " gloss-border-none" : effectiveBorder === "solid" ? " gloss-border-solid" : "";
+  const borderClass = effectiveBorder === "none" ? " gloss-border-none" : " gloss-border-solid";
   div.className = `gloss-cell${colorClass(color)}${borderClass}`;
   if (node.attrs.title) {
     const strong = document.createElement("strong");
@@ -137,15 +127,13 @@ function renderCell(node: GlossNode, parentColor: string, parentBorder: "solid" 
   return div;
 }
 
-function renderStep(node: GlossNode, parentColor: string): HTMLElement {
+function renderStep(node: GlossNode, parentColor: string, index: number): HTMLElement {
   const li = document.createElement("li");
   const color = inheritColorFor(node, parentColor);
   li.className = `gloss-step${colorClass(color)}`;
-  if (node.attrs.title) {
-    const strong = document.createElement("strong");
-    strong.textContent = node.attrs.title;
-    li.appendChild(strong);
-  }
+  const strong = document.createElement("strong");
+  strong.textContent = node.attrs.title ?? `Step ${index}`;
+  li.appendChild(strong);
   li.appendChild(renderChildren(node.children));
   return li;
 }

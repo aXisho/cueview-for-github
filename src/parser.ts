@@ -1,19 +1,31 @@
 // Gloss Markdown parser — returns a GlossChild[] tree (not HTML strings).
 //
 // Recognizes:
-//   - GitHub Alert callouts: > [!NOTE|TIP|IMPORTANT|WARNING|CAUTION] title + body
-//   - Alert-extended void directives: > [!toc title="..." depth=3]
 //   - Fenced block directives: ```name attrs ... ```
 //   - Nested container directives: ````tabs ... \n ```tab ... ``` ... ````
 //   - Inline directives: `text`{name attrs}
+//   - Heading attributes: ## Text {heading attrs}
+
+import { parseAttrs } from "./attrs";
+import {
+  ALLOWED_COLORS,
+  FENCED_BLOCK_NAMES,
+  INLINE_DIRECTIVES,
+  SAFE_URL_PATTERN,
+  SAFE_URL_RE,
+  parseDirectiveAttrs,
+  shouldParseFencedDirective,
+} from "./gloss-spec";
+
+export { ALLOWED_COLORS, SAFE_URL_PATTERN, SAFE_URL_RE, parseAttrs };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface GlossNode {
-  kind: "cue";
+  kind: "gloss";
   name: string;
   attrs: Record<string, string>;
-  children: Array<GlossNode | TextNode>;
+  children: GlossChild[];
   inline: boolean;
   selfClosing: boolean;
 }
@@ -23,103 +35,115 @@ export interface TextNode {
   content: string;
 }
 
-export type GlossChild = GlossNode | TextNode;
+export interface InlineParagraph {
+  kind: "inline-para";
+  children: GlossChild[];
+}
 
-export const ALLOWED_COLORS = ["gray", "blue", "green", "yellow", "red", "purple"] as const;
-
-export const SAFE_URL_RE = /^(https?:\/\/|\.\.?\/|\/[^/]|#)/;
+export type GlossChild = GlossNode | TextNode | InlineParagraph;
 
 // ── Directive vocabulary ──────────────────────────────────────────────────────
 
-const ALERT_TYPE_TO_DIRECTIVE: Record<string, string> = {
-  NOTE: "info",
-  TIP: "tip",
-  IMPORTANT: "important",
-  WARNING: "warning",
-  CAUTION: "danger",
-};
-
-const BLOCK_DIRECTIVES = ["details", "card", "math"];
-
-// Heading promotion: a Markdown ATX heading whose only content is an inline
-// `heading` directive promotes the directive's colour onto the heading itself.
-// Captures: 1 = `#` count (1..6), 2 = inner text, 3 = attrs text.
+// Heading attributes: Markdown ATX heading text followed by `{heading attrs}`.
+// Captures: 1 = `#` count (1..6), 2 = heading text, 3 = attrs text.
 const HEADING_PROMOTION_RE =
-  /^(#{1,6})\s+`([^`\n]+)`\{heading(\s+[^}\n]*)?\}\s*$/i;
-const CONTAINER_DIRECTIVES = ["tabs", "steps", "grid"];
-const CHILD_DIRECTIVES = ["tab", "step", "cell"];
-const VOID_DIRECTIVES = new Set(["toc"]);
-
-// Directive names recognized as a fenced block (everything that may appear as
-// a code-fence info string and become a GlossNode).
-const FENCED_BLOCK_NAMES = new Set<string>([
-  ...BLOCK_DIRECTIVES,
-  ...CONTAINER_DIRECTIVES,
-  ...CHILD_DIRECTIVES,
-]);
-
-// ── parseAttrs ────────────────────────────────────────────────────────────────
-
-export function parseAttrs(attrsString: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  if (!attrsString.trim()) return result;
-
-  const re = /([a-z][a-z0-9_-]*)(?:=(?:"((?:[^"\\]|\\.)*)"|(\S*)))?/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(attrsString)) !== null) {
-    const key = match[1].toLowerCase();
-    let value: string;
-    if (match[2] !== undefined) {
-      value = match[2]
-        .replace(/\\"/g, '"')
-        .replace(/\\\\/g, "\\")
-        .replace(/\\n/g, "\n");
-    } else if (match[3] !== undefined) {
-      value = match[3];
-    } else {
-      value = "true";
-    }
-    result[key] = value;
-  }
-  return result;
-}
+  /^ {0,3}(#{1,6})\s+(?!.*\s#+\s+\{heading(?:\s|}))(.*?)\s+\{heading(\s+[^}\n]*)?\}\s*$/i;
+const PLAIN_HEADING_RE = /^ {0,3}(#{1,6})\s+/;
 
 // ── Inline directive splitter ─────────────────────────────────────────────────
 //
 // Splits a single line into a mix of text segments and inline GlossNodes.
 // Pattern: `text`{name attrs}
-//   - The text portion is captured literally (no Markdown is interpreted here).
-//   - The brace block must close on the same line. If it does not, the inline
-//     code span and the unclosed brace block are left as plain text.
+//
+// The text follows the GFM code-span rule: a run of N backticks opens the span,
+// and the next run of exactly N backticks closes it. This lets the text contain
+// fewer backticks than the delimiter (e.g. ``a`b``{kbd}). The brace block must
+// immediately follow the closing run and close on the same line.
 
-const INLINE_RE = /`([^`\n]+)`\{([a-z][a-z0-9-]*)(\s+[^}\n]*)?\}/gi;
+function normalizeCodeSpanText(text: string): string {
+  const normalized = text.replace(/\r?\n/g, " ");
+  if (
+    normalized.length >= 2 &&
+    normalized.startsWith(" ") &&
+    normalized.endsWith(" ") &&
+    /[^ ]/.test(normalized.slice(1, -1))
+  ) {
+    return normalized.slice(1, -1);
+  }
+  return normalized;
+}
 
-function splitInline(line: string): GlossChild[] {
+function splitInlineLine(line: string): GlossChild[] {
   const out: GlossChild[] = [];
   let lastIdx = 0;
-  INLINE_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
+  let pos = 0;
 
-  while ((m = INLINE_RE.exec(line)) !== null) {
-    const matchStart = m.index;
-    const text = m[1];
-    const name = m[2].toLowerCase();
-    const attrsStr = (m[3] ?? "").trim();
+  while (pos < line.length) {
+    const matchStart = line.indexOf("`", pos);
+    if (matchStart === -1) break;
+
+    let openEnd = matchStart + 1;
+    while (openEnd < line.length && line[openEnd] === "`") openEnd++;
+    const markerLen = openEnd - matchStart;
+
+    let closeStart = -1;
+    let search = openEnd;
+    while (search < line.length) {
+      const tick = line.indexOf("`", search);
+      if (tick === -1) break;
+      let tickEnd = tick + 1;
+      while (tickEnd < line.length && line[tickEnd] === "`") tickEnd++;
+      if (tickEnd - tick === markerLen) {
+        closeStart = tick;
+        break;
+      }
+      search = tickEnd;
+    }
+
+    if (closeStart === -1) break;
+
+    const closeEnd = closeStart + markerLen;
+    if (line[closeEnd] !== "{") {
+      pos = closeEnd;
+      continue;
+    }
+
+    const braceEnd = line.indexOf("}", closeEnd + 1);
+    if (braceEnd === -1) {
+      pos = closeEnd;
+      continue;
+    }
+
+    const directiveText = line.slice(closeEnd + 1, braceEnd);
+    const directiveMatch = /^([a-z][a-z0-9-]*)(?:\s+([^}\n]*))?$/i.exec(directiveText);
+    if (!directiveMatch) {
+      pos = braceEnd + 1;
+      continue;
+    }
+
+    const name = directiveMatch[1].toLowerCase();
+    const attrsStr = (directiveMatch[2] ?? "").trim();
+
+    if (!INLINE_DIRECTIVES.has(name)) {
+      pos = braceEnd + 1;
+      continue;
+    }
 
     if (matchStart > lastIdx) {
       out.push({ kind: "text", content: line.slice(lastIdx, matchStart) });
     }
 
     out.push({
-      kind: "cue",
+      kind: "gloss",
       name,
-      attrs: parseAttrs(attrsStr),
-      children: [{ kind: "text", content: text }],
+      attrs: parseDirectiveAttrs(name, attrsStr),
+      children: [{ kind: "text", content: normalizeCodeSpanText(line.slice(openEnd, closeStart)) }],
       inline: true,
       selfClosing: false,
     });
 
-    lastIdx = INLINE_RE.lastIndex;
+    lastIdx = braceEnd + 1;
+    pos = lastIdx;
   }
 
   if (lastIdx < line.length) {
@@ -130,6 +154,20 @@ function splitInline(line: string): GlossChild[] {
 }
 
 // Apply inline splitting to every line of a text body.
+//
+// Lines inside a fenced code block are emitted verbatim: per §2/§8 the body of a
+// (non-directive) code fence is a code block, so a `` `x`{name} `` sequence in
+// there is part of the code, not an inline directive. We follow the same
+// CommonMark fence rule used elsewhere — a fence opens on `` ``` ``/`~~~` (length
+// ≥ 3) and closes on a line of the same character, length ≥ the opener, with no
+// trailing info string.
+const FENCE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})(.*)$/;
+
+function isFenceClose(line: string, fenceChar: string, minLen: number): boolean {
+  const escaped = fenceChar === "`" ? "`" : "\\~";
+  return new RegExp(`^[ \\t]{0,3}${escaped}{${minLen},}\\s*$`).test(line);
+}
+
 function applyInlineToText(text: string): GlossChild[] {
   if (!text) return [];
   // Quick path: no backticks at all → no inline directives possible.
@@ -137,11 +175,35 @@ function applyInlineToText(text: string): GlossChild[] {
 
   const lines = text.split("\n");
   const out: GlossChild[] = [];
+  let fenceChar = "";
+  let fenceLen = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const isLast = i === lines.length - 1;
-    const segments = splitInline(line);
+
+    if (fenceLen > 0) {
+      // Inside a code fence: pass the line through verbatim and check for close.
+      if (isFenceClose(line, fenceChar, fenceLen)) {
+        fenceChar = "";
+        fenceLen = 0;
+      }
+      appendText(out, line);
+      if (!isLast) appendText(out, "\n");
+      continue;
+    }
+
+    const fenceMatch = FENCE_LINE_RE.exec(line);
+    if (fenceMatch && !(fenceMatch[1][0] === "`" && fenceMatch[2].includes("`"))) {
+      // Opening fence — start verbatim mode, emit the line as-is.
+      fenceChar = fenceMatch[1][0];
+      fenceLen = fenceMatch[1].length;
+      appendText(out, line);
+      if (!isLast) appendText(out, "\n");
+      continue;
+    }
+
+    const segments = splitInlineLine(line);
 
     if (segments.length === 0) {
       if (!isLast) appendText(out, "\n");
@@ -179,72 +241,6 @@ function mergeTextRuns(children: GlossChild[]): GlossChild[] {
   return out;
 }
 
-// ── Alert block detection ─────────────────────────────────────────────────────
-//
-// A GitHub Alert is a blockquote whose first non-empty line starts with
-// `[!TYPE]`. The TYPE may be a callout (NOTE/TIP/…) or a registered void
-// directive name (toc, …).
-
-const BLOCKQUOTE_LINE_RE = /^[ \t]{0,3}>[ \t]?(.*)$/;
-const ALERT_FIRST_LINE_RE = /^\[!([A-Za-z][A-Za-z0-9-]*)((?:\s+[^=\s]+(?:=(?:"[^"]*"|\S*))?)*)?\]\s*(.*)$/;
-
-interface AlertCapture {
-  /** Number of source lines consumed (including the blockquote). */
-  consumed: number;
-  /** Raw type as written (used for diagnostics, kept lowercase here). */
-  rawType: string;
-  /** First-line attrs text (between `[!TYPE` and the closing `]`). */
-  attrsText: string;
-  /** Text after the closing `]` on the same line. */
-  titleOrTail: string;
-  /** Body lines with leading `> ` stripped. */
-  bodyLines: string[];
-}
-
-/** Attempt to consume a blockquote starting at `lines[start]`. */
-function captureBlockquote(lines: string[], start: number): { lines: string[]; end: number } | null {
-  if (start >= lines.length) return null;
-  const m0 = BLOCKQUOTE_LINE_RE.exec(lines[start]);
-  if (!m0) return null;
-
-  const captured: string[] = [m0[1] ?? ""];
-  let i = start + 1;
-  while (i < lines.length) {
-    const m = BLOCKQUOTE_LINE_RE.exec(lines[i]);
-    if (!m) break;
-    captured.push(m[1] ?? "");
-    i++;
-  }
-  return { lines: captured, end: i };
-}
-
-/** If the blockquote at `start` is an Alert, return its capture. */
-function detectAlert(lines: string[], start: number): AlertCapture | null {
-  const bq = captureBlockquote(lines, start);
-  if (!bq) return null;
-
-  // First non-empty line of the blockquote
-  let head = -1;
-  for (let i = 0; i < bq.lines.length; i++) {
-    if (bq.lines[i].trim() !== "") {
-      head = i;
-      break;
-    }
-  }
-  if (head < 0) return null;
-
-  const m = ALERT_FIRST_LINE_RE.exec(bq.lines[head]);
-  if (!m) return null;
-
-  return {
-    consumed: bq.end - start,
-    rawType: m[1],
-    attrsText: (m[2] ?? "").trim(),
-    titleOrTail: m[3].trim(),
-    bodyLines: bq.lines.slice(head + 1),
-  };
-}
-
 // ── Fenced block detection ────────────────────────────────────────────────────
 //
 // Recognizes a code fence whose info string starts with a known directive
@@ -262,7 +258,7 @@ interface FenceCapture {
   attrsText: string;
   /** Body lines between the opening and closing fence (closing not included). */
   bodyLines: string[];
-  /** True if no matching closing fence was found (CUE001 condition). */
+  /** True if no matching closing fence was found (unterminated directive). */
   unterminated: boolean;
 }
 
@@ -275,6 +271,7 @@ function detectFence(lines: string[], start: number): FenceCapture | null {
   const marker = m[2];
   const name = m[3].toLowerCase();
   const attrsText = (m[4] ?? "").trim();
+  if (marker[0] === "`" && attrsText.includes("`")) return null;
 
   // Match closing fence: same char, length ≥ opening, optionally indented.
   const fenceChar = marker[0];
@@ -311,15 +308,19 @@ function detectFence(lines: string[], start: number): FenceCapture | null {
 
 export function parseGlossMd(source: string): GlossChild[] {
   const lines = source.split("\n");
-  return parseLines(lines);
+  const tree = parseLines(lines);
+  mergeInlineParas(tree);
+  return tree;
 }
 
-function parseLines(lines: string[]): GlossChild[] {
+function parseLines(lines: string[], parentName?: string): GlossChild[] {
   const out: GlossChild[] = [];
   /** Accumulated raw text awaiting flush. Lines are joined with `\n`. */
   let textBuf: string[] = [];
   let inFenceBuf = false;
-  let fenceBufMarker = "";
+  let fenceBufChar = "";
+  let fenceBufLen = 0;
+  const headingStack: Array<{ level: number; indent: number }> = [];
 
   /** Flush accumulated text as TextNode(s), applying inline directive splitting. */
   const flushText = (): void => {
@@ -331,42 +332,51 @@ function parseLines(lines: string[]): GlossChild[] {
     for (const p of parts) out.push(p);
   };
 
-  /** True if the line opens a non-cue fenced block we should pass through verbatim. */
+  /** True if the line opens a non-directive fenced block we should pass through verbatim. */
   const isPassThroughFenceOpen = (line: string): { marker: string } | null => {
-    // A normal Markdown fence (no cue directive name in info string).
+    // A normal Markdown fence (no Gloss directive name in info string).
     const m = /^[ \t]{0,3}(`{3,}|~{3,})\s*(\S+)?/.exec(line);
     if (!m) return null;
     const marker = m[1];
     const lang = m[2];
-    if (lang && FENCED_BLOCK_NAMES.has(lang.toLowerCase())) return null; // handled separately
+    if (marker[0] === "`" && line.slice(line.indexOf(marker) + marker.length).includes("`")) return null;
+    if (lang && FENCED_BLOCK_NAMES.has(lang.toLowerCase()) && shouldParseFencedDirective(lang.toLowerCase(), parentName)) {
+      return null;
+    }
     return { marker };
   };
 
   for (let i = 0; i < lines.length; ) {
     const line = lines[i];
 
-    // ── Inside a pass-through (non-cue) fenced code block ────────────────────
+    // ── Inside a pass-through (non-directive) fenced code block ──────────────
     if (inFenceBuf) {
       textBuf.push(line);
-      const t = line.trim();
-      if (t.startsWith(fenceBufMarker[0]) && /^[`~]+$/.test(t) && t.length >= fenceBufMarker.length) {
+      if (isFenceClose(line, fenceBufChar, fenceBufLen)) {
         inFenceBuf = false;
-        fenceBufMarker = "";
+        fenceBufChar = "";
+        fenceBufLen = 0;
       }
       i++;
       continue;
     }
 
-    // ── Cue fenced block ─────────────────────────────────────────────────────
+    // ── Gloss fenced block ───────────────────────────────────────────────────
     if (line.trimStart().startsWith("`") || line.trimStart().startsWith("~")) {
       const fc = detectFence(lines, i);
-      if (fc && FENCED_BLOCK_NAMES.has(fc.name)) {
+      if (fc && FENCED_BLOCK_NAMES.has(fc.name) && shouldParseFencedDirective(fc.name, parentName)) {
+        if (fc.unterminated) {
+          textBuf.push(...lines.slice(i, i + fc.consumed));
+          i += fc.consumed;
+          continue;
+        }
         flushText();
-        const innerChildren = parseLines(fc.bodyLines);
+        const innerChildren = parseLines(fc.bodyLines, fc.name);
+        mergeInlineParas(innerChildren);
         out.push({
-          kind: "cue",
+          kind: "gloss",
           name: fc.name,
-          attrs: parseAttrs(fc.attrsText),
+          attrs: parseDirectiveAttrs(fc.name, fc.attrsText),
           children: innerChildren,
           inline: false,
           selfClosing: false,
@@ -376,19 +386,20 @@ function parseLines(lines: string[]): GlossChild[] {
       }
     }
 
-    // ── Non-cue fence open: enter pass-through mode (text accumulation) ─────
+    // ── Non-directive fence open: enter pass-through mode (text accumulation) ─
     {
       const fo = isPassThroughFenceOpen(line);
       if (fo) {
         textBuf.push(line);
         inFenceBuf = true;
-        fenceBufMarker = fo.marker;
+        fenceBufChar = fo.marker[0];
+        fenceBufLen = fo.marker.length;
         i++;
         continue;
       }
     }
 
-    // ── Heading promotion: `# ` … `###### ` followed by `text`{heading …} ──
+    // ── Heading attributes: `# ` … `###### ` followed by `{heading …}` ────
     {
       const hm = HEADING_PROMOTION_RE.exec(line);
       if (hm) {
@@ -396,10 +407,17 @@ function parseLines(lines: string[]): GlossChild[] {
         const level = hm[1].length;
         const text = hm[2];
         const attrsText = (hm[3] ?? "").trim();
-        const attrs = parseAttrs(attrsText);
+        const attrs = parseDirectiveAttrs("heading", attrsText);
+        while (headingStack.length > 0 && headingStack[headingStack.length - 1].level >= level) {
+          headingStack.pop();
+        }
+        const inheritedIndent = headingStack[headingStack.length - 1]?.indent ?? 0;
+        const indent = inheritedIndent + (attrs.nest === "true" ? 1 : 0);
         attrs.level = String(level);
+        if (indent > 0) attrs.indent = String(indent);
+        headingStack.push({ level, indent });
         out.push({
-          kind: "cue",
+          kind: "gloss",
           name: "heading",
           attrs,
           children: [{ kind: "text", content: text }],
@@ -411,50 +429,15 @@ function parseLines(lines: string[]): GlossChild[] {
       }
     }
 
-    // ── Alert callout / void ─────────────────────────────────────────────────
-    if (line.trimStart().startsWith(">")) {
-      const ac = detectAlert(lines, i);
-      if (ac) {
-        const typeUpper = ac.rawType.toUpperCase();
-        const typeLower = ac.rawType.toLowerCase();
-        const directiveName = ALERT_TYPE_TO_DIRECTIVE[typeUpper];
-
-        if (directiveName) {
-          // Callout
-          flushText();
-          const attrs: Record<string, string> = {};
-          // GitHub alert syntax doesn't support text on the same line as [!TYPE];
-          // treat any trailing text as the first body line rather than a title.
-          const bodyLines = ac.titleOrTail ? [ac.titleOrTail, ...ac.bodyLines] : ac.bodyLines;
-          out.push({
-            kind: "cue",
-            name: directiveName,
-            attrs,
-            children: parseLines(bodyLines),
-            inline: false,
-            selfClosing: false,
-          });
-          i += ac.consumed;
-          continue;
+    {
+      const hm = PLAIN_HEADING_RE.exec(line);
+      if (hm) {
+        const level = hm[1].length;
+        while (headingStack.length > 0 && headingStack[headingStack.length - 1].level >= level) {
+          headingStack.pop();
         }
-
-        if (VOID_DIRECTIVES.has(typeLower)) {
-          // Void Alert (e.g. > [!toc title="..." depth=3])
-          flushText();
-          const attrs: Record<string, string> = ac.attrsText ? parseAttrs(ac.attrsText) : {};
-          if (ac.titleOrTail) attrs.title = ac.titleOrTail;
-          out.push({
-            kind: "cue",
-            name: typeLower,
-            attrs,
-            children: [],
-            inline: false,
-            selfClosing: true,
-          });
-          i += ac.consumed;
-          continue;
-        }
-        // Otherwise fall through: leave as ordinary blockquote text.
+        const inheritedIndent = headingStack[headingStack.length - 1]?.indent ?? 0;
+        headingStack.push({ level, indent: inheritedIndent });
       }
     }
 
@@ -467,3 +450,62 @@ function parseLines(lines: string[]): GlossChild[] {
   return mergeTextRuns(out);
 }
 
+// ── mergeInlineParas ─────────────────────────────────────────────────────────
+
+function mergeInlineParas(children: GlossChild[]): void {
+  for (const child of children) {
+    if (child.kind === "gloss" && !child.inline) {
+      mergeInlineParas(child.children);
+    }
+  }
+
+  let i = 0;
+  while (i < children.length) {
+    const node = children[i];
+    if (node.kind !== "gloss" || !node.inline) {
+      i++;
+      continue;
+    }
+
+    const run: GlossChild[] = [];
+
+    if (i > 0 && children[i - 1].kind === "text") {
+      const prev = children[i - 1] as TextNode;
+      const nlIdx = prev.content.lastIndexOf("\n");
+      const tail = nlIdx >= 0 ? prev.content.slice(nlIdx + 1) : prev.content;
+      const head = nlIdx >= 0 ? prev.content.slice(0, nlIdx + 1) : "";
+      if (tail) run.push({ kind: "text", content: tail });
+      if (head) {
+        prev.content = head;
+      } else {
+        children.splice(i - 1, 1);
+        i--;
+      }
+    }
+
+    let j = i;
+    while (j < children.length) {
+      const c = children[j];
+      if (c.kind === "gloss" && c.inline) {
+        run.push(c);
+        j++;
+        continue;
+      }
+      if (c.kind === "text") {
+        const nlIdx = c.content.indexOf("\n");
+        if (nlIdx === -1) {
+          run.push(c);
+          j++;
+          continue;
+        }
+        if (nlIdx > 0) run.push({ kind: "text", content: c.content.slice(0, nlIdx) });
+        c.content = c.content.slice(nlIdx);
+        break;
+      }
+      break;
+    }
+
+    children.splice(i, j - i, { kind: "inline-para", children: run });
+    i++;
+  }
+}

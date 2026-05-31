@@ -1,6 +1,6 @@
 /* GlossView for GitHub — directive styles */
 /* Derived from k1LoW/mo (MIT License, Copyright © 2026 Ken'ichiro Oyama <k1lowxb@gmail.com>)
-   via glmo (https://github.com/aXisho/glmo) and cuemo.
+   via glmo (https://github.com/aXisho/glmo).
    https://github.com/k1LoW/mo */
 
 /* ── Syntax highlighting (highlight.js github theme) ── */
@@ -56,15 +56,6 @@ code.hljs { padding: 3px 5px; }
   [data-color-mode="auto"] .hljs-deletion { color: #ffdcd7; background-color: #67060c; }
 }
 
-/* Callouts */
-.gloss-callout { border-left: 4px solid; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; }
-.gloss-callout-info      { border-color: var(--gloss-blue, #0969da);   background: color-mix(in srgb, var(--gloss-blue, #0969da) 8%, transparent); }
-.gloss-callout-tip       { border-color: var(--gloss-green, #1a7f37);  background: color-mix(in srgb, var(--gloss-green, #1a7f37) 8%, transparent); }
-.gloss-callout-important { border-color: var(--gloss-purple, #8250df); background: color-mix(in srgb, var(--gloss-purple, #8250df) 8%, transparent); }
-.gloss-callout-warning   { border-color: var(--gloss-yellow, #9a6700); background: color-mix(in srgb, var(--gloss-yellow, #9a6700) 8%, transparent); }
-.gloss-callout-danger    { border-color: var(--gloss-red, #cf222e);    background: color-mix(in srgb, var(--gloss-red, #cf222e) 8%, transparent); }
-.gloss-callout-title { font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
-
 /* Heading scroll offset — clears GitHub's sticky global nav (~64px) */
 .markdown-body h1, .markdown-body h2, .markdown-body h3,
 .markdown-body h4, .markdown-body h5, .markdown-body h6 { scroll-margin-top: 120px; }
@@ -117,9 +108,6 @@ h4.gloss-heading, h5.gloss-heading, h6.gloss-heading {
 
 /* Small */
 .gloss-small { font-size: 0.8em; color: var(--color-gh-text-secondary, #656d76); }
-
-/* Big — the typographic counterpart of <small> */
-.gloss-big { font-size: 1.25em; font-weight: 600; }
 
 /* Details */
 details.gloss-details { border: 1px solid var(--color-gh-border, #d0d7de); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 2rem 0; }
@@ -265,10 +253,6 @@ a[data-footnote-backref] { text-decoration: none; margin-left: 0.25rem; }
 .gloss-code-block > .gloss-pre-wrapper > pre { margin: 0 !important; border-radius: 0 !important; }
 .gloss-code-block > .gloss-pre-wrapper { margin: 0 !important; }
 
-
-/* Math (KaTeX MathML output) */
-.gloss-math-block { display: block; text-align: center; margin: 1em 0; }
-.gloss-math-inline { display: inline; }
 
 /* Body line-height — WCAG 2.1 SC 1.4.12: 1.6–1.8 optimal for sustained screen reading.
    github-markdown-css defaults to 1.5; explicit overrides per GitHub font-size tier. */

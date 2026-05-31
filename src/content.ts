@@ -9,7 +9,11 @@ import { renderChildren } from "./renderer";
 
 function isGlossMdPath(): boolean {
   const p = window.location.pathname.toLowerCase();
-  return p.endsWith(".gloss.md") || p.endsWith(".gloss");
+  if (isWikiPage()) {
+    const pageName = getWikiPageName()?.toLowerCase();
+    return !!pageName && (pageName.endsWith(".gloss") || pageName.endsWith(".gloss.md"));
+  }
+  return p.endsWith(".gloss.md");
 }
 
 function isGistPage(): boolean {
@@ -20,24 +24,35 @@ function isEditPage(): boolean {
   return /^\/[^/]+\/[^/]+\/edit\//.test(window.location.pathname);
 }
 
-function getRawUrl(): string | null {
-  const p = window.location.pathname;
+function isRepoFilePage(): boolean {
+  return /^\/[^/]+\/[^/]+\/(?:blob|edit)\//.test(window.location.pathname);
+}
 
-  // Repo file on blob view or edit page: /owner/repo/blob|edit/branch/path
-  const fileM = p.match(/^\/([^/]+)\/([^/]+)\/(?:blob|edit)\/([^/]+)\/(.+)$/);
-  if (fileM) {
-    const [, owner, repo, branch, path] = fileM;
-    return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
-  }
+function isWikiPage(): boolean {
+  return /^\/[^/]+\/[^/]+\/wiki\/.+/.test(window.location.pathname);
+}
 
-  // Wiki page: /owner/repo/wiki/page-name
-  const wikiM = p.match(/^\/([^/]+)\/([^/]+)\/wiki\/(.+)$/);
-  if (wikiM) {
-    const [, owner, repo, page] = wikiM;
-    return `https://raw.githubusercontent.com/wiki/${owner}/${repo}/${page}`;
-  }
+function getWikiPageName(): string | null {
+  const m = window.location.pathname.match(/^\/[^/]+\/[^/]+\/wiki\/(.+)$/);
+  if (!m) return null;
+  return m[1].replace(/\/_(?:edit|history)$/, "");
+}
 
-  return null;
+function getCurrentWikiPath(): string | null {
+  const pageName = getWikiPageName();
+  const m = window.location.pathname.match(/^(\/[^/]+\/[^/]+\/wiki)\//);
+  return pageName && m ? `${m[1]}/${pageName}` : null;
+}
+
+function getWikiEditUrl(): string | null {
+  const wikiPath = getCurrentWikiPath();
+  return wikiPath ? `${window.location.origin}${wikiPath}/_edit` : null;
+}
+
+function getRepoFileEditUrl(): string | null {
+  const m = window.location.pathname.match(/^(\/[^/]+\/[^/]+)\/(?:blob|edit)\/(.+)$/);
+  if (!m) return null;
+  return `${window.location.origin}${m[1]}/edit/${m[2]}`;
 }
 
 function findContainer(): Element | null {
@@ -96,7 +111,7 @@ function findGistGlossFiles(): GistGlossFile[] {
     if (!nameEl) continue;
     const filename = (nameEl.getAttribute("title") ?? nameEl.textContent ?? "").trim();
     const fn = filename.toLowerCase();
-    if (!fn.endsWith(".gloss.md") && !fn.endsWith(".gloss")) continue;
+    if (!fn.endsWith(".gloss.md")) continue;
 
     const rawLink = fc.querySelector<HTMLAnchorElement>('a[href*="/raw/"]');
     if (!rawLink) continue;
@@ -135,6 +150,8 @@ const cachedRaw = new Map<string, string>();
 const watchedContainers = new Map<Element, MutationObserver>();
 const renderedSources = new WeakMap<Element, string>();
 let bodyObserver: MutationObserver | null = null;
+let wikiSidebarObserver: MutationObserver | null = null;
+let wikiSidebarRetryTimer: number | null = null;
 
 const SENTINEL_ATTR = "data-glossview-sentinel";
 const EDITOR_CONTENT_ATTR = "data-glossview-content";
@@ -164,6 +181,10 @@ function applyAndWatch(container: Element, raw: string): void {
     frag.prepend(sentinel);
     container.replaceChildren(frag);
     installHashLinkHandlers(container);
+    if (isWikiPage()) {
+      installWikiSidebarObserver();
+      scheduleWikiSidebarDirectiveStrip();
+    }
     queueMicrotask(() => {
       applying = false;
     });
@@ -189,9 +210,98 @@ function applyAndWatch(container: Element, raw: string): void {
   watchedContainers.set(container, observer);
 }
 
+function stripWikiSidebarDirectives(): void {
+  const pageName = getWikiPageName();
+  if (!pageName) return;
+
+  const currentPageLink = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>(".js-wiki-sidebar-page-container a[href]")
+  ).find((a) => {
+    try {
+      return new URL(a.href).pathname === getCurrentWikiPath();
+    } catch {
+      return false;
+    }
+  });
+  const pageBox = currentPageLink?.closest(".js-wiki-sidebar-page-container");
+  const tocContainer =
+    pageBox?.querySelector<HTMLElement>(".js-wiki-sidebar-toc-container") ??
+    document.getElementById(`${pageName}-table-of-contents`);
+  if (!tocContainer) return;
+
+  for (const link of tocContainer.querySelectorAll<HTMLAnchorElement>("a")) {
+    const text = link.textContent ?? "";
+    const stripped = stripDirectiveText(text);
+    if (stripped !== text) {
+      link.textContent = stripped;
+    }
+  }
+}
+
+function stripDirectiveText(text: string): string {
+  return text
+    .replace(/\{[a-z][a-z0-9-]*(?:\s+[^}]*)?\}/gi, "")
+    .trim();
+}
+
 function clearWatched(): void {
   for (const obs of watchedContainers.values()) obs.disconnect();
   watchedContainers.clear();
+  clearWikiSidebarObserver();
+}
+
+function clearWikiSidebarObserver(): void {
+  wikiSidebarObserver?.disconnect();
+  wikiSidebarObserver = null;
+  if (wikiSidebarRetryTimer !== null) {
+    window.clearTimeout(wikiSidebarRetryTimer);
+    wikiSidebarRetryTimer = null;
+  }
+}
+
+function installWikiSidebarObserver(): void {
+  if (wikiSidebarObserver || !isWikiPage()) return;
+
+  const target =
+    document.querySelector("#wiki-pages-box") ??
+    document.querySelector(".wiki-rightbar") ??
+    document.querySelector(".Layout-sidebar");
+  if (!target) return;
+
+  let pending = false;
+  wikiSidebarObserver = new MutationObserver(() => {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => {
+      pending = false;
+      stripWikiSidebarDirectives();
+    });
+  });
+  wikiSidebarObserver.observe(target, { childList: true, subtree: true, characterData: true });
+}
+
+function scheduleWikiSidebarDirectiveStrip(): void {
+  if (!isWikiPage()) return;
+
+  requestAnimationFrame(() => {
+    installWikiSidebarObserver();
+    stripWikiSidebarDirectives();
+  });
+
+  if (wikiSidebarRetryTimer !== null) return;
+
+  const delays = [100, 300, 800, 1500];
+  let i = 0;
+  const retry = (): void => {
+    wikiSidebarRetryTimer = null;
+    if (!isWikiPage() || i >= delays.length) return;
+    installWikiSidebarObserver();
+    stripWikiSidebarDirectives();
+    wikiSidebarRetryTimer = window.setTimeout(retry, delays[i]);
+    i += 1;
+  };
+  wikiSidebarRetryTimer = window.setTimeout(retry, delays[i]);
+  i += 1;
 }
 
 /**
@@ -238,23 +348,159 @@ async function mainGist(): Promise<void> {
 }
 
 async function getRawForCurrentPage(): Promise<string | null> {
-  const rawUrl = getRawUrl();
-  if (!rawUrl) return null;
-
   const cacheKey = window.location.pathname;
-  let raw = cachedRaw.get(cacheKey);
+  let raw: string | null | undefined = cachedRaw.get(cacheKey);
   if (raw !== undefined) return raw;
 
-  try {
-    const res = await fetch(rawUrl);
-    if (!res.ok) return null;
-    raw = await res.text();
-    cachedRaw.set(cacheKey, raw);
-    return raw;
-  } catch {
-    console.warn("[GlossView] Failed to fetch:", rawUrl);
+  if (isWikiPage()) {
+    raw = getMarkdownSourceFromDocument(document) ?? (await getRawFromWikiEditPage());
+    if (raw) {
+      cachedRaw.set(cacheKey, raw);
+      return raw;
+    }
     return null;
   }
+
+  if (isRepoFilePage()) {
+    raw = getMarkdownSourceFromDocument(document) ?? (await getRawFromRepoFileEditPage());
+    if (raw) {
+      cachedRaw.set(cacheKey, raw);
+      return raw;
+    }
+  }
+
+  return null;
+}
+
+async function getRawFromWikiEditPage(): Promise<string | null> {
+  const editUrl = getWikiEditUrl();
+  if (!editUrl) return null;
+
+  try {
+    const res = await fetch(editUrl, { credentials: "same-origin" });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const textarea =
+      doc.querySelector<HTMLTextAreaElement>('textarea[name="wiki[body]"]') ??
+      doc.querySelector<HTMLTextAreaElement>("#wiki_body") ??
+      doc.querySelector<HTMLTextAreaElement>("textarea");
+    const value = textarea?.value;
+    return value && value.trim() ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getRawFromRepoFileEditPage(): Promise<string | null> {
+  const editUrl = getRepoFileEditUrl();
+  if (!editUrl) return null;
+
+  try {
+    const res = await fetch(editUrl, { credentials: "same-origin" });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return getMarkdownSourceFromDocument(doc);
+  } catch {
+    console.warn("[GlossView] Failed to fetch file edit page:", editUrl);
+    return null;
+  }
+}
+
+function getMarkdownSourceFromDocument(doc: Document): string | null {
+  return getTextareaSource(doc) ?? getJsonSource(doc) ?? getCodeLineSource(doc);
+}
+
+function getTextareaSource(doc: Document): string | null {
+  const selectors = [
+    'textarea[name="value"]',
+    'textarea[name="contents"]',
+    'textarea[name="blob_contents"]',
+    'textarea[name="wiki[body]"]',
+    "#file-content-textarea",
+    "#wiki_body",
+    "textarea",
+  ];
+
+  for (const selector of selectors) {
+    const value = doc.querySelector<HTMLTextAreaElement>(selector)?.value;
+    if (value && value.trim()) return value;
+  }
+  return null;
+}
+
+function getJsonSource(doc: Document): string | null {
+  const candidates: string[] = [];
+
+  for (const script of doc.querySelectorAll<HTMLScriptElement>('script[type="application/json"]')) {
+    const text = script.textContent;
+    if (!text) continue;
+    try {
+      collectSourceCandidates(JSON.parse(text), candidates);
+    } catch {
+      // Ignore unrelated application/json script tags.
+    }
+  }
+
+  return bestSourceCandidate(candidates);
+}
+
+function collectSourceCandidates(value: unknown, candidates: string[], key = ""): void {
+  if (Array.isArray(value)) {
+    if (
+      /(?:raw)?lines?/i.test(key) &&
+      value.length > 0 &&
+      value.every((item) => typeof item === "string")
+    ) {
+      candidates.push((value as string[]).join("\n"));
+    }
+    for (const item of value) collectSourceCandidates(item, candidates);
+    return;
+  }
+
+  if (typeof value === "string") {
+    if (/(?:content|source|text|raw)/i.test(key) && value.includes("\n")) {
+      candidates.push(value);
+    }
+    return;
+  }
+
+  if (!value || typeof value !== "object") return;
+  for (const [childKey, childValue] of Object.entries(value)) {
+    collectSourceCandidates(childValue, candidates, childKey);
+  }
+}
+
+function getCodeLineSource(doc: Document): string | null {
+  const lineSelectors = [
+    ".blob-code-inner",
+    "[data-line-number] .react-file-line",
+    "[data-code-text]",
+  ];
+
+  for (const selector of lineSelectors) {
+    const lines = Array.from(doc.querySelectorAll<HTMLElement>(selector))
+      .map((el) => el.getAttribute("data-code-text") ?? el.textContent ?? "");
+    const candidate = lines.join("\n");
+    if (candidate.trim()) return candidate;
+  }
+  return null;
+}
+
+function bestSourceCandidate(candidates: string[]): string | null {
+  const nonEmpty = candidates.filter((candidate) => candidate.trim());
+  if (nonEmpty.length === 0) return null;
+  nonEmpty.sort((a, b) => sourceScore(b) - sourceScore(a));
+  return nonEmpty[0];
+}
+
+function sourceScore(source: string): number {
+  let score = source.length;
+  if (/\{[a-z][a-z0-9-]*(?:\s+[^}]*)?\}/i.test(source)) score += 100_000;
+  if (/^```/m.test(source)) score += 10_000;
+  if (/^#{1,6}\s/m.test(source)) score += 1_000;
+  return score;
 }
 
 function getCapturedEditorContent(): string | null {
@@ -292,6 +538,13 @@ async function main(): Promise<void> {
   if (!isGlossMdPath()) {
     clearWatched();
     return;
+  }
+
+  if (isWikiPage()) {
+    installWikiSidebarObserver();
+    scheduleWikiSidebarDirectiveStrip();
+  } else {
+    clearWikiSidebarObserver();
   }
 
   // Edit page: target the preview tab panel; blob/wiki: the rendered article.

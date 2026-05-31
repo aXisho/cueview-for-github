@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
+import { defineConfig } from "vitest/config";
 
 function escapeNonAscii(): Plugin {
   return {
@@ -22,7 +23,7 @@ function escapeNonAscii(): Plugin {
   };
 }
 
-export default {
+export default defineConfig({
   build: {
     target: "chrome120",
     outDir: "dist/glossview-for-github/src",
@@ -40,5 +41,6 @@ export default {
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    pool: "vmThreads",
   },
-};
+});

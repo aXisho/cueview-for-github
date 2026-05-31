@@ -1,18 +1,13 @@
 import type { GlossNode } from "../parser";
-import { ALLOWED_COLORS } from "../parser";
 import { renderInlineChildren } from "../renderer";
-
-function safeColor(color: string | undefined): string {
-  if (color && (ALLOWED_COLORS as readonly string[]).includes(color)) return color;
-  return "";
-}
+import { colorClass, safeColor } from "../render-utils";
 
 export function renderInline(node: GlossNode): HTMLElement {
   switch (node.name) {
     case "badge": {
       const color = safeColor(node.attrs.color);
       const span = document.createElement("span");
-      span.className = `gloss-badge${color ? ` gloss-color-${color}` : ""}`;
+      span.className = `gloss-badge${colorClass(color)}`;
       span.appendChild(renderInlineChildren(node.children));
       return span;
     }
@@ -21,13 +16,6 @@ export function renderInline(node: GlossNode): HTMLElement {
       small.className = "gloss-small";
       small.appendChild(renderInlineChildren(node.children));
       return small;
-    }
-    case "big": {
-      // <big> is obsolete in HTML5; emit a span with a styling hook instead.
-      const big = document.createElement("span");
-      big.className = "gloss-big";
-      big.appendChild(renderInlineChildren(node.children));
-      return big;
     }
     case "kbd": {
       const kbd = document.createElement("span");

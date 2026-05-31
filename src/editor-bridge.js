@@ -4,8 +4,14 @@
 // The captured text is stored in document.documentElement.dataset.glossviewContent
 // so the ISOLATED-world content script can read it without cross-world event dispatch.
 (function () {
+  if (window.__glossviewEditorBridgeInstalled) return;
+  window.__glossviewEditorBridgeInstalled = true;
+
   var ATTR = "data-glossview-content";
   var SEQ_ATTR = "data-glossview-content-seq";
+  var REQUEST_EVENT = "__glossview_request_editor_content";
+  var RESPONSE_EVENT = "__glossview_editor_content";
+  var CLEAR_EVENT = "__glossview_clear_editor_content";
   var lastText = null;
   var seq = 0;
 
@@ -286,15 +292,15 @@
 
   // ── Respond to content script requests ─────────────────────────────────────
 
-  document.addEventListener("__glossview_request_editor_content", function () {
+  document.addEventListener(REQUEST_EVENT, function () {
     var content = fromEditor();
     if (content) storeContent(content);
     document.dispatchEvent(
-      new CustomEvent("__glossview_editor_content", { detail: content })
+      new CustomEvent(RESPONSE_EVENT, { detail: content })
     );
   });
 
-  document.addEventListener("__glossview_clear_editor_content", function () {
+  document.addEventListener(CLEAR_EVENT, function () {
     lastText = null;
     try {
       document.documentElement.removeAttribute(ATTR);

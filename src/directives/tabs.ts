@@ -1,20 +1,11 @@
 import type { GlossNode } from "../parser";
-import { ALLOWED_COLORS } from "../parser";
 import { renderChildren } from "../renderer";
-
-function safeColor(color: string | undefined, fallback = ""): string {
-  if (color && (ALLOWED_COLORS as readonly string[]).includes(color)) return color;
-  return fallback;
-}
-
-function colorClass(color: string): string {
-  return color ? ` gloss-color-${color}` : "";
-}
+import { colorClass, safeColor } from "../render-utils";
 
 export function renderTabs(node: GlossNode): HTMLElement {
   // A bare `tab` (no `tabs` parent) is rendered standalone — show its title
-  // and body without the tab-strip chrome. This corresponds to diagnostic
-  // CUE005 (tab outside tabs) which the parser does not enforce.
+  // and body without the tab-strip chrome (a `tab` outside `tabs`, which the
+  // parser does not reject).
   if (node.name === "tab") {
     const orphan = document.createElement("div");
     const color = safeColor(node.attrs.color);
@@ -30,7 +21,10 @@ export function renderTabs(node: GlossNode): HTMLElement {
 
   // Collect direct GlossNode children with name === "tab"
   const tabs = node.children.filter(
-    (c): c is GlossNode => c.kind === "cue" && c.name === "tab"
+    (c): c is GlossNode => c.kind === "gloss" && c.name === "tab"
+  );
+  const passthrough = node.children.filter(
+    (c) => !(c.kind === "gloss" && c.name === "tab")
   );
 
   const parentColor = safeColor(node.attrs.color);
@@ -92,5 +86,8 @@ export function renderTabs(node: GlossNode): HTMLElement {
 
   wrapper.appendChild(bar);
   wrapper.appendChild(panel);
+  if (passthrough.length > 0) {
+    wrapper.appendChild(renderChildren(passthrough));
+  }
   return wrapper;
 }
